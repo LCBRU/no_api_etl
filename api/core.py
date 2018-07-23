@@ -29,9 +29,10 @@ class Schedule(Enum):
 
 
 class Etl:
-    def __init__(self, schedule=None):
+    def __init__(self, name=None, schedule=None):
 
         # Unpick CamelCase
+        self._name = name or type(self).__name__
         self._name = re.sub('([a-z])([A-Z])', r'\1 \2', self._name)
         self._schedule = schedule or Schedule.weekly
 
