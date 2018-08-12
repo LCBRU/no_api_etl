@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import urllib
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+from urllib import parse
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
@@ -10,11 +8,8 @@ from api.core import Etl, Schedule
 from api.model import EdgeStudy
 from api.selenium import SeleniumGrid, get_td_column_contents
 from api.database import database
-from api.environment import (
-    EDGE_PASSWORD,
-    EDGE_USERNAME,
-    EDGE_BASE_URL,
-)
+from api.environment import EDGE_BASE_URL
+from api.uhl_etl.edge import login
 
 
 class EdgeStudyDetailDownload(Etl):
@@ -32,9 +27,9 @@ class EdgeStudyDetailDownload(Etl):
 
             with SeleniumGrid(SeleniumGrid.CHROME) as driver:
 
-                self.login(driver)
+                login(driver)
 
-                driver.get(urllib.parse.urljoin(
+                driver.get(parse.urljoin(
                     EDGE_BASE_URL,
                     self.PAGE_URL,
                 ))
@@ -58,22 +53,3 @@ class EdgeStudyDetailDownload(Etl):
                         type=type,
                     )
                     session.add(s)
-
-    def login(self, driver):
-        driver.get(EDGE_BASE_URL)
-
-        username = WebDriverWait(driver, 10).until(
-            ec.presence_of_element_located((
-                By.NAME, "fldUsername"))
-        )
-
-        password = driver.find_element_by_name('fldPassword')
-
-        username.send_keys(EDGE_USERNAME)
-        password.send_keys(EDGE_PASSWORD)
-
-        password.send_keys(Keys.RETURN)
-
-        WebDriverWait(driver, 10).until(
-            ec.presence_of_element_located((By.ID, "headerOrganisationName"))
-        )

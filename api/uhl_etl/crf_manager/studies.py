@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import urllib
 import itertools
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+from urllib import parse
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
@@ -11,11 +9,8 @@ from api.core import Etl, Schedule
 from api.model import CrfmStudy
 from api.selenium import SeleniumGrid, get_td_column_contents, get_td_keyvalue_contents
 from api.database import database
-from api.environment import (
-    CRFM_PASSWORD,
-    CRFM_USERNAME,
-    CRFM_BASE_URL,
-)
+from api.environment import CRFM_BASE_URL
+from api.uhl_etl.crf_manager import login
 
 
 class CrfmStudyDetailDownload(Etl):
@@ -33,9 +28,9 @@ class CrfmStudyDetailDownload(Etl):
 
             with SeleniumGrid(SeleniumGrid.CHROME) as driver:
 
-                self.login(driver)
+                login(driver)
 
-                driver.get(urllib.parse.urljoin(
+                driver.get(parse.urljoin(
                     CRFM_BASE_URL,
                     STUDY_LIST_URL,
                 ))
@@ -68,25 +63,3 @@ class CrfmStudyDetailDownload(Etl):
                     )
 
                     session.add(s)
-
-    def login(self, driver):
-        driver.get(urllib.parse.urljoin(
-                CRFM_BASE_URL,
-                'Login.aspx',
-            ))
-
-        username = WebDriverWait(driver, 10).until(
-            ec.presence_of_element_located((
-                By.ID, "tbLogin"))
-        )
-
-        password = driver.find_element(By.ID, 'tbPassword')
-
-        username.send_keys(CRFM_USERNAME)
-        password.send_keys(CRFM_PASSWORD)
-
-        password.send_keys(Keys.RETURN)
-
-        WebDriverWait(driver, 10).until(
-            ec.presence_of_element_located((By.CSS_SELECTOR, "div.pnl_primary_links"))
-        )
