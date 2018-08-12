@@ -2,6 +2,7 @@
 """
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.common.by import By
 
 
 class SeleniumGrid():
@@ -24,3 +25,20 @@ class SeleniumGrid():
 
     def __exit__(self, *args):
         self.driver.quit()
+
+
+def get_td_column_contents(tr, column):
+    return tr.find_element_by_xpath(
+        'td[position()={}]'.format(column)
+        ).get_attribute('innerHTML')
+
+
+def get_td_keyvalue_contents(table, key):
+    row = table.find_elements(By.XPATH, 'tr[contains(td/text(), "{}")]'.format(key))
+    
+    value = ''
+
+    if len(row) > 0:
+        value = row[0].find_element(By.XPATH, 'td[position()=2]').get_attribute('innerHTML')
+
+    return value

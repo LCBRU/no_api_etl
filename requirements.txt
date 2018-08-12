@@ -3,3 +3,5 @@ pymssql
 markdown
 selenium
 PyMySQL
+sqlalchemy
+sqlalchemy-migrate

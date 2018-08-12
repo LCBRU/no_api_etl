@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 import smtplib
-import os
 from email.mime.text import MIMEText
-
-
-EMAIL_FROM_ADDRESS = os.environ["EMAIL_FROM_ADDRESS"]
-EMAIL_SMTP_SERVER = os.environ["EMAIL_SMTP_SERVER"]
-
-DEFAULT_RECIPIENT = os.environ["DEFAULT_RECIPIENT"]
+from api.environment import (
+    EMAIL_FROM_ADDRESS,
+    EMAIL_SMTP_SERVER,
+    DEFAULT_RECIPIENT,
+)
 
 
 def email_error(report_name, error_text):
