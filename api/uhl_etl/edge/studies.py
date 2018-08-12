@@ -1,41 +1,21 @@
 #!/usr/bin/env python3
 
 import urllib
-from sqlalchemy import Column, Integer, String
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 from api.core import Etl, Schedule
+from api.model import EdgeStudy
 from api.selenium import SeleniumGrid, get_td_column_contents
-from api.database import database, Base
+from api.database import database
 from api.environment import (
     EDGE_PASSWORD,
     EDGE_USERNAME,
     EDGE_BASE_URL,
 )
 
-
-class EdgeStudy(Base):
-    __tablename__ = 'edge_study'
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    site = Column(String)
-    portfolio_number = Column(String)
-    status = Column(String)
-    type = Column(String)
-
-    def __repr__(self):
-        return "<Study(id='{}' title='{}' site='{}' portfolio_number='{}' status='{}' type='{}')>".format(
-            self.id,
-            self.title,
-            self.site,
-            self.portfolio_number,
-            self.status,
-            self.type,
-        )
 
 class EdgeStudyDetailDownload(Etl):
 
@@ -47,6 +27,8 @@ class EdgeStudyDetailDownload(Etl):
     def do_etl(self):
 
         with database() as session:
+
+            session.execute('DELETE FROM {};'.format(EdgeStudy.__tablename__))
 
             with SeleniumGrid(SeleniumGrid.CHROME) as driver:
 

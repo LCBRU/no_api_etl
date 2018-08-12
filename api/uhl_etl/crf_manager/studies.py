@@ -2,41 +2,21 @@
 
 import urllib
 import itertools
-from sqlalchemy import Column, Integer, String
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 from api.core import Etl, Schedule
+from api.model import CrfmStudy
 from api.selenium import SeleniumGrid, get_td_column_contents, get_td_keyvalue_contents
-from api.database import database, Base
+from api.database import database
 from api.environment import (
     CRFM_PASSWORD,
     CRFM_USERNAME,
     CRFM_BASE_URL,
 )
 
-
-class CrfmStudy(Base):
-    __tablename__ = 'crfm_study'
-
-    id = Column(Integer, primary_key=True)
-    portfolio_number = Column(String)
-    title = Column(String)
-    rd_number = Column(String)
-    crn_number = Column(String)
-    status = Column(String)
-
-    def __repr__(self):
-        return "<Study(id='{}' portfolio_number='{}' title='{}' rd_number='{}' crn_number='{}' status='{}')>".format(
-            self.id,
-            self.portfolio_number,
-            self.title,
-            self.rd_number,
-            self.crn_number,
-            self.status,
-        )
 
 class CrfmStudyDetailDownload(Etl):
 
@@ -48,6 +28,8 @@ class CrfmStudyDetailDownload(Etl):
         STUDY_LIST_URL = 'Print/Print_List.aspx?dbid=crf_leicestercrf_test&areaID=44&type=Query&name=Default&vid=&iid='
 
         with database() as session:
+
+            session.execute('DELETE FROM {};'.format(CrfmStudy.__tablename__))
 
             with SeleniumGrid(SeleniumGrid.CHROME) as driver:
 
