@@ -4,3 +4,4 @@ selenium
 PyMySQL
 sqlalchemy
 sqlalchemy-migrate
+mysqlclient
