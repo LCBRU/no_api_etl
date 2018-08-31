@@ -6,8 +6,11 @@ import traceback
 import importlib
 import pkgutil
 import inspect
+import os
+from tempfile import mkstemp
 from enum import Enum
 from api.emailing import email_error
+from api.selenium import SeleniumGrid
 
 
 class Schedule(Enum):
@@ -54,6 +57,31 @@ class Etl:
             email_error(self._name, traceback.format_exc())
 
     def do_etl(self):
+        pass
+
+
+class SeleniumEtl(Etl):
+
+    def __init__(self, name=None, schedule=None, browser=SeleniumGrid.CHROME):
+        super().__init__(name, schedule)
+        self._browser = browser
+
+    def do_etl(self):
+        with SeleniumGrid(self._browser) as driver:
+            try:
+                self.do_selenium_etl(driver)
+            except KeyboardInterrupt as e:
+                raise e
+            except Exception:
+                logging.error(traceback.format_exc())
+
+                email_error(
+                    report_name=self._name,
+                    error_text=traceback.format_exc(),
+                    screenshot=driver.get_screenshot_as_png(),
+                )
+
+    def do_selenium_etl(self, driver):
         pass
 
 

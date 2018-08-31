@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import smtplib
+import os
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.encoders import encode_base64
 from email.mime.text import MIMEText
 from api.environment import (
     EMAIL_FROM_ADDRESS,
@@ -9,11 +13,23 @@ from api.environment import (
 )
 
 
-def email_error(report_name, error_text):
-    msg = MIMEText(error_text)
+def email_error(report_name, error_text, screenshot=None):
+    msg = MIMEMultipart()
     msg['Subject'] = 'Reporter: Error in ' + report_name
     msg['To'] = DEFAULT_RECIPIENT
     msg['From'] = EMAIL_FROM_ADDRESS
+
+    msg.attach(MIMEText(error_text))
+
+    if screenshot:
+        part = MIMEBase('image', 'png')
+        part.set_payload(screenshot)
+        encode_base64(part)
+
+        part.add_header('Content-Disposition',
+                        'attachment; filename="screenshot.png"')
+
+        msg.attach(part)
 
     s = smtplib.SMTP(EMAIL_SMTP_SERVER)
     s.send_message(msg)
