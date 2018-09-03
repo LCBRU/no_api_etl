@@ -16,7 +16,7 @@ from api.uhl_etl.crf_manager import login
 class CrfmStudyDetailDownload(SeleniumEtl):
 
     def __init__(self):
-        super().__init__(schedule=Schedule.daily)
+        super().__init__(schedule=Schedule.five_minutely)
 
     def do_selenium_etl(self, driver):
 

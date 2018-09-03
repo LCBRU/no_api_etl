@@ -15,6 +15,18 @@ from api.selenium import SeleniumGrid
 
 class Schedule(Enum):
     @staticmethod
+    def minutely(func):
+        schedule.every().minute.do(func)
+
+    @staticmethod
+    def five_minutely(func):
+        schedule.every(5).minutes.do(func)
+
+    @staticmethod
+    def hourly(func):
+        schedule.every().hour.do(func)
+
+    @staticmethod
     def daily(func):
         schedule.every().day.at("08:00").do(func)
 
