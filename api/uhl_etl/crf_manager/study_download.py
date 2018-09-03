@@ -9,7 +9,7 @@ from api.core import SeleniumEtl, Schedule
 from api.model import CrfmStudy
 from api.selenium import SeleniumGrid, get_td_column_contents, get_td_keyvalue_contents
 from api.database import database
-from api.environment import CRFM_BASE_URL
+from api.environment import CRFM_BASE_URL, CRFM_DB_ID
 from api.uhl_etl.crf_manager import login
 
 
@@ -20,7 +20,7 @@ class CrfmStudyDetailDownload(SeleniumEtl):
 
     def do_selenium_etl(self, driver):
 
-        STUDY_LIST_URL = 'Print/Print_List.aspx?dbid=crf_leicestercrf_test&areaID=44&type=Query&name=Default&vid=&iid='
+        STUDY_LIST_URL = 'Print/Print_List.aspx?dbid={}&areaID=44&type=Query&name=Default&vid=&iid='.format(CRFM_DB_ID)
 
         with database() as session:
 
