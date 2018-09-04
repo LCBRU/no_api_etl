@@ -1,15 +1,15 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData
+from sqlalchemy import Table, Column, Integer, MetaData, NVARCHAR
 
 meta = MetaData()
 
 study = Table(
     'crfm_study', meta,
     Column('id', Integer, primary_key=True),
-    Column('portfolio_number', String(100)),
-    Column('title', String(500)),
-    Column('rd_number', String(100)),
-    Column('crn_number', String(100)),
-    Column('status', String(50)),
+    Column('portfolio_number', NVARCHAR(100)),
+    Column('title', NVARCHAR(500)),
+    Column('rd_number', NVARCHAR(100)),
+    Column('crn_number', NVARCHAR(100)),
+    Column('status', NVARCHAR(50)),
 )
 
 def upgrade(migrate_engine):
