@@ -17,7 +17,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
     PAGE_URL = 'ProjectOverviewReport'
 
     def __init__(self):
-        super().__init__(schedule=Schedule.never)
+        super().__init__(schedule=Schedule.hourly)
 
     def do_selenium_etl(self, driver):
 

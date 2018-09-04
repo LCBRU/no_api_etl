@@ -5,3 +5,4 @@ PyMySQL
 sqlalchemy
 sqlalchemy-migrate
 mysqlclient
+requests
