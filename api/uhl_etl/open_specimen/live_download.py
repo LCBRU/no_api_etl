@@ -78,4 +78,4 @@ class OpenSpecimenDatabase(Etl):
         ])
 
         if proc.returncode != 0:
-            raise Exception('Could not decrypt file error code = {}.'.format(proc.returncode))
+            raise Exception('Could create database = {}.'.format(proc.returncode))

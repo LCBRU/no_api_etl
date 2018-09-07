@@ -4,15 +4,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
-from api.environment import CONNECTION_STRING
+from api.environment import ETL_CENTRAL_CONNECTION_STRING
 
 Base = declarative_base()
 
 
 @contextmanager
-def database():
+def etl_central_session():
     try:
-        engine = create_engine(CONNECTION_STRING, echo=True)
+        engine = create_engine(ETL_CENTRAL_CONNECTION_STRING, echo=True)
         session_maker = sessionmaker(bind=engine)
         session = session_maker()
         yield session

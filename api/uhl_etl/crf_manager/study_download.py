@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from api.core import SeleniumEtl, Schedule
 from api.model import CrfmStudy
 from api.selenium import SeleniumGrid, get_td_column_contents, get_td_keyvalue_contents
-from api.database import database
+from api.database import etl_central_session
 from api.environment import CRFM_BASE_URL, CRFM_DB_ID
 from api.uhl_etl.crf_manager import login
 
@@ -22,7 +22,7 @@ class CrfmStudyDetailDownload(SeleniumEtl):
 
         STUDY_LIST_URL = 'Print/Print_List.aspx?dbid={}&areaID=44&type=Query&name=Default&vid=&iid='.format(CRFM_DB_ID)
 
-        with database() as session:
+        with etl_central_session() as session:
 
             session.execute('DELETE FROM {};'.format(CrfmStudy.__tablename__))
 

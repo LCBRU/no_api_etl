@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from api.core import SeleniumEtl, Schedule
 from api.model import EdgeStudy
 from api.selenium import SeleniumGrid, get_td_column_contents
-from api.database import database
+from api.database import etl_central_session
 from api.environment import EDGE_BASE_URL
 from api.uhl_etl.edge import login
 
@@ -23,7 +23,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
 
     def do_selenium_etl(self, driver):
 
-        with database() as session:
+        with etl_central_session() as session:
 
             session.execute('DELETE FROM {};'.format(EdgeStudy.__tablename__))
 
