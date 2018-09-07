@@ -44,21 +44,35 @@ class CrfmStudy(Base):
     __tablename__ = 'crfm_study'
 
     id = Column(Integer, primary_key=True)
-    portfolio_number = Column(String)
+    study_number = Column(String)
+    protocol_number = Column(String)
     title = Column(String)
+    ethics_number = Column(String)
+    clinical_trial_gov = Column(String)
+    isrctn = Column(String)
+    iras_number = Column(String)
+    nihr_crn_number = Column(String)
     rd_number = Column(String)
-    crn_number = Column(String)
+    who = Column(String)
+    eudract = Column(String)
     status = Column(String)
-    type = Column(String)
 
     def __repr__(self):
-        return ("<CrfmStudy(id='{}' portfolio_number='{}' title='{}' "
-            "rd_number='{}' crn_number='{}' status='{}')>".format(
+        return ("<CrfmStudy(id='{}' study_number='{}' title='{}' "
+            "ethics_number='{}' clinical_trial_gov='{}' isrctn='{}' "
+            "iras_number='{}' nihr_crn_number='{}' rd_number='{}' "
+            "who='{}' protocol_number='{}' eudract='{}' status='{}')>".format(
             self.id,
-            self.portfolio_number,
+            self.study_number,
             self.title,
+            self.ethics_number,
+            self.clinical_trial_gov,
+            self.isrctn,
+            self.iras_number,
+            self.nihr_crn_number,
             self.rd_number,
-            self.crn_number,
+            self.who,
+            self.protocol_number,
+            self.eudract,
             self.status,
         ))
-

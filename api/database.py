@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
-from api.environment import ETL_CENTRAL_CONNECTION_STRING
+from api.environment import ETL_CENTRAL_CONNECTION_STRING, ETL_DATABASES_CONNECTION_STRING
 
 Base = declarative_base()
 
@@ -22,3 +22,9 @@ def etl_central_session():
         raise e
     else:
         session.commit()
+
+
+@contextmanager
+def etl_databases_engine():
+    engine = create_engine(ETL_DATABASES_CONNECTION_STRING, echo=True)
+    yield engine
