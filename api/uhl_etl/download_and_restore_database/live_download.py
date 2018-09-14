@@ -89,6 +89,7 @@ class DatabaseDownloadAndRestore(Etl):
         proc = subprocess.run([
             'gpg',
             '--decrypt',
+            '--batch',
             '--output',
             output_filename,
             '--passphrase',
