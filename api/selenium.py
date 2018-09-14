@@ -34,11 +34,11 @@ def get_td_column_contents(tr, column):
 
 
 def get_td_keyvalue_contents(table, key):
-    row = table.find_elements(By.XPATH, 'tr[contains(td/text(), "{}")]'.format(key))
+    row = table.find_elements(By.XPATH, 'tr[starts-with(td/text(), "{}") or starts-with(td/label/text(), "{}")]'.format(key, key))
     
     value = ''
 
     if len(row) > 0:
         value = row[0].find_element(By.XPATH, 'td[position()=2]').get_attribute('innerHTML')
 
-    return value
+    return value.strip()
