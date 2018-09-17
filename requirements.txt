@@ -6,3 +6,5 @@ sqlalchemy
 sqlalchemy-migrate
 mysqlclient
 requests
+beautifulsoup4
+lxml

@@ -36,6 +36,7 @@ def get_parameters():
     return args
 
 def run():
+    logging.info("---- Starting ----")
     args = get_parameters()
 
     exclude = [x.lower() for x in args.exclude]
@@ -43,11 +44,11 @@ def run():
     if args.all:
         run_all(exclude)
 
-        logging.info("---- All reports run ----")
+        logging.info("---- All ETLs run ----")
     elif not args.report_names:
         schedule_etls()
     else:
         for report_name in args.report_names:
             run_etls(report_name, exclude)
 
-        logging.info("---- All reports run ----")
+        logging.info("---- All ETLs run ----")

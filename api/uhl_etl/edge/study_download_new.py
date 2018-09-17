@@ -3,6 +3,7 @@
 import time
 import datetime
 import re
+from bs4 import BeautifulSoup
 from urllib import parse
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
@@ -50,15 +51,14 @@ class EdgeStudyDetailDownloadNew(SeleniumEtl):
             self.PAGE_URL,
         ))
 
-        table_body = WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 10).until(
             ec.presence_of_element_located((By.XPATH, '//table/tbody'))
         )
 
-        for row in table_body.find_elements_by_xpath('tr'):
-            links = row.find_elements(By.TAG_NAME, 'a')
+        soup = BeautifulSoup(driver.page_source, "lxml")
 
-            for l in links:
-                result.append(l.get_attribute('href'))
+        for link in soup.find_all('a'):
+            result.append(link['href'])
 
         return set(result)
 
@@ -66,13 +66,20 @@ class EdgeStudyDetailDownloadNew(SeleniumEtl):
         result = []
 
         for l in study_site_links:
-            driver.get(l)
+            driver.get(parse.urljoin(
+                EDGE_BASE_URL,
+                l,
+            ))
 
-            sl = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.CSS_SELECTOR  , 'h2.projectSite a'))
-            ).get_attribute('href')
+            WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]/table[position()=1]/tbody'))
+            )
 
-            result.append(sl)
+            soup = BeautifulSoup(driver.page_source, "lxml")
+
+            study_link = soup.find("h2", class_="projectSite").a
+
+            result.append(study_link['href'])
 
         return set(result)
 
@@ -80,45 +87,57 @@ class EdgeStudyDetailDownloadNew(SeleniumEtl):
         result = []
 
         for l in study_links:
-            driver.get(l)
+            driver.get(parse.urljoin(
+                EDGE_BASE_URL,
+                l,
+            ))
 
-            identifiers = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="identifiers"]/table/tbody'))
-            )
-            details = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]/table/tbody'))
-            )
-            participants = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="participants"]/table/tbody'))
+            WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]'))
             )
 
-            result.append(EdgeStudy(
+            soup = BeautifulSoup(driver.page_source, "lxml")
+
+            identifier_values = self.get_td_keyvalue_pairs(soup.find(id="identifiers").table)
+            detail_values = self.get_td_keyvalue_pairs(soup.find(id="details").table)
+            participant_values = self.get_td_keyvalue_pairs(soup.find(id="participants").table)
+
+            e= EdgeStudy(
+
+                # Details
+
                 edge_study_id=l.split('/')[-1],
-                title=get_td_keyvalue_contents(details, 'Short Title'),
-                status=get_td_keyvalue_contents(details, 'Status'),
-                type=get_td_keyvalue_contents(details, 'Project Type'),
-                chief_investigator=get_td_keyvalue_contents(details, 'Chief Investigator'),
+                title=detail_values.get('Short Title:'),
+                status=detail_values.get('Status:'),
+                type=detail_values.get('Project Type:'),
+                chief_investigator=detail_values.get('Chief Investigator:'),
                 planned_start_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(details, 'Planned Start Date')
+                    detail_values.get('Planned Start Date:')
                 ),
                 start_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(details, 'Start Date')
+                    detail_values.get('Start Date:')
                 ),
                 planned_end_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(details, 'Planned End Date')
+                    detail_values.get('Planned End Date:')
                 ),
                 end_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(details, 'End Date')
+                    detail_values.get('End Date:')
                 ),
 
-                local_project_reference=get_td_keyvalue_contents(identifiers, 'Local Project Reference'),
-                nihr_portfolio_study_id=get_td_keyvalue_contents(identifiers, 'NIHR Portfolio Study ID'),
-                iras_number=get_td_keyvalue_contents(identifiers, 'IRAS Number'),
-                mrec_number=get_td_keyvalue_contents(identifiers, 'MREC Number'),
+                # Identifiers
 
-                target_size=get_td_keyvalue_contents(participants, 'Target size'),
-                actual_recruitment=get_td_keyvalue_contents(participants, 'Actual recruitment').split(" ")[0].strip(),
-            ))
+                local_project_reference=identifier_values.get('Local Project Reference:'),
+                nihr_portfolio_study_id=identifier_values.get('NIHR Portfolio Study ID:'),
+                iras_number=identifier_values.get('IRAS Number:'),
+                mrec_number=identifier_values.get('MREC Number:'),
+
+                # Participants
+
+                target_size=participant_values.get('Target size:'),
+                actual_recruitment=(participant_values.get('Actual recruitment:') or '').split(" ")[0].strip(),
+            )
+
+            result.append(e)
 
         return result
 
@@ -129,102 +148,115 @@ class EdgeStudyDetailDownloadNew(SeleniumEtl):
         whitespace = re.compile('\s')
 
         for l in study_site_links:
-            driver.get(l)
 
-            study_link = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.CSS_SELECTOR  , 'h2.projectSite a'))
-            ).get_attribute('href')
-            
-            identifiers = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="identifiers"]/div/div/table[position()=1]/tbody'))
-            )
-            details = WebDriverWait(driver, 10).until(
+            driver.get(parse.urljoin(
+                EDGE_BASE_URL,
+                l,
+            ))
+
+            WebDriverWait(driver, 10).until(
                 ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]/table[position()=1]/tbody'))
             )
-            approvals = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]/table[position()=2]/tbody'))
-            )
-            milestones = WebDriverWait(driver, 10).until(
-                ec.presence_of_element_located((By.XPATH  , '//div[@id="details"]/table[position()=3]/tbody'))
-            )
 
-            result.append(EdgeStudySite(
+            soup = BeautifulSoup(driver.page_source, "lxml")
+
+            details_tables = list(soup.find(id="details").find_all('table'))
+
+            identifier_values = self.get_td_keyvalue_pairs(soup.find(id="identifiers").table)
+            detail_values = self.get_td_keyvalue_pairs(details_tables[0])
+            approval_values = self.get_td_keyvalue_pairs(details_tables[1])
+            milestones_values = self.get_td_keyvalue_pairs(details_tables[2])
+
+            study_link = soup.find("h2", class_="projectSite").a
+
+            e = EdgeStudySite(
+
+                # Study Details
+
                 edge_study_site_id=l.split('/')[-1],
-                edge_study_id=study_link.split('/')[-1],
-                site=whitespace.sub(' ', get_td_keyvalue_contents(details, 'Site')).split("(")[0].strip(),
-                status=get_td_keyvalue_contents(details, 'Status'),
-                site_type=get_td_keyvalue_contents(details, 'Type'),
-                principal_investigator=get_td_keyvalue_contents(details, 'Principal Investigator'),
-                site_target_recruitment=get_td_keyvalue_contents(details, 'Site target recruitment'),
+                edge_study_id=study_link['href'].split('/')[-1],
+                site=whitespace.sub(' ', detail_values.get('Site (Parent):')).split("(")[0].strip(),
+                status=detail_values.get('Status:'),
+                site_type=detail_values.get('Type:'),
+                principal_investigator=detail_values.get('Principal Investigator:'),
+                site_target_recruitment=detail_values.get('Site target recruitment:'),
 
-                approval_process=get_td_keyvalue_contents(approvals, 'Approval process'),
+                # Approvals
+
+                approval_process=approval_values.get('Approval process:'),
                 randd_submission_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'R&D Submission Date')
+                    approval_values.get('R&D Submission Date:')
                 ),
                 start_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Start date')
+                    approval_values.get('Start date (NHS Permission):')
                 ),
                 ssi_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'SSI date')
+                    approval_values.get('SSI date:')
                 ),
-                candc_assessment_required=get_td_keyvalue_contents(approvals, 'Capacity & capability'),
+                candc_assessment_required=approval_values.get('Capacity & capability assessment required?:'),
                 date_site_invited=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Date site invited')
+                    approval_values.get('Date site invited:')
                 ),
                 date_site_selected=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Date site selected')
+                    approval_values.get('Date site selected:')
                 ),
                 date_site_confirmed_by_sponsor=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Date site confirmed by Sponsor')
+                    approval_values.get('Date site confirmed by Sponsor:')
                 ),
                 date_site_confirmed=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Date site confirmed:')
+                    approval_values.get('Date site confirmed:')
                 ),
-                non_confirmation_status=get_td_keyvalue_contents(approvals, 'Non confirmation status'),
+                non_confirmation_status=approval_values.get('Non confirmation status:'),
                 date_of_non_confirmation=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(approvals, 'Date of non confirmation')
+                    approval_values.get('Date of non confirmation:')
                 ),
+
+                # Milestones
 
                 siv_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'SIV date')
+                    milestones_values.get('SIV date:')
                 ),
                 open_to_recruitment_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'Open to recruitment')
+                    milestones_values.get('Open to recruitment:')
                 ),
                 recruitment_start_date_date_planned=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'Recruitment end date (Planned)')
+                    milestones_values.get('Recruitment end date (Planned):')
                 ),
                 recruitment_start_date_date_actual=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'Recruitment end date (Actual)')
+                    milestones_values.get('Recruitment end date (Actual):')
                 ),
                 planned_closing_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'Planned closing date')
+                    milestones_values.get('Planned closing date:')
                 ),
                 closed_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(milestones, 'Closed date')
+                    milestones_values.get('Closed date:')
                 ),
 
+                # Identifiers
+
                 first_patient_consented=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(identifiers, 'First patient consented')
+                    identifier_values.get('First patient consented:')
                 ),
                 first_patient_recruited=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(identifiers, 'First patient recruited')
+                    identifier_values.get('First patient recruited:')
                 ),
                 first_patient_recruited_consent_date=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(identifiers, 'First patient recruited (Consent date)')
+                    identifier_values.get('First patient recruited (Consent date):')
                 ),
-                recruitment_clock_days=get_td_keyvalue_contents(identifiers, 'Recruitment clock'),
-                ssi_to_first_patient_days=get_td_keyvalue_contents(identifiers, 'SSI to first patient'),
-                estimated_annual_target=get_td_keyvalue_contents(identifiers, 'Estimated Annual Target'),
-                estimated_months_running=get_td_keyvalue_contents(identifiers, 'Estimated Months Running'),
-                actual_recruitment=whitespace.sub(' ', get_td_keyvalue_contents(identifiers, 'Actual recruitment')).split(' ')[0].strip(),
+                recruitment_clock_days=identifier_values.get('Recruitment clock (days):'),
+                ssi_to_first_patient_days=identifier_values.get('SSI to first patient (days):'),
+                estimated_annual_target=identifier_values.get('Estimated Annual Target:'),
+                estimated_months_running=identifier_values.get('Estimated Months Running:'),
+                actual_recruitment=whitespace.sub(' ', identifier_values.get('Actual recruitment:')).split(' ')[0].strip(),
                 last_patient_recruited=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(identifiers, 'Last patient recruited')
+                    identifier_values.get('Last patient recruited:')
                 ),
                 last_patient_referred=self.parsed_date_or_none(
-                    get_td_keyvalue_contents(identifiers, 'Last patient referred')
+                    identifier_values.get('Last patient referred:')
                 ),
-            ))
+            )
+
+            result.append(e)
         
         return result
 
@@ -236,3 +268,17 @@ class EdgeStudyDetailDownloadNew(SeleniumEtl):
             ).date()
         else:
             return None
+
+
+    def get_td_keyvalue_pairs(self, table):
+        result = {}
+
+        for tr in table.tbody.find_all('tr'):
+            td = tr.find_all('td')
+
+            key = td[0].get_text().strip()
+            value = td[1].get_text().strip()
+
+            result[key] = value
+
+        return result

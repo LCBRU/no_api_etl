@@ -33,6 +33,25 @@ def get_td_column_contents(tr, column):
         ).get_attribute('innerHTML')
 
 
+def get_td_keyvalue_pairs(tbody):
+    result = {}
+
+    for tr in tbody.find_elements_by_tag_name('tr'):
+        td = tr.find_elements_by_tag_name('td')
+
+        if key_is_label:
+            key_container = td[0].find('label')
+        else:
+            key_container = td[0]
+
+        key = key_container.get_attribute('innerHTML').strip()
+        value = td[1]
+
+        result[key] = value
+
+    return result
+
+
 def get_td_keyvalue_contents(table, key):
     row = table.find_elements(By.XPATH, 'tr[starts-with(td/text(), "{}") or starts-with(td/label/text(), "{}")]'.format(key, key))
     
