@@ -18,7 +18,8 @@ from api.uhl_etl.edge import login
 
 class EdgeStudyDetailDownload(SeleniumEtl):
 
-    PAGE_URL = 'ProjectSearch2/GetProjSearchPrintableSummary'
+    PRINT_URL = 'ProjectSearch2/GetProjSearchPrintableSummary'
+    SEARCH_URL = 'ProjectSearch2'
 
     def __init__(self):
         super().__init__(schedule=Schedule.daily)
@@ -46,9 +47,39 @@ class EdgeStudyDetailDownload(SeleniumEtl):
     def get_study_site_links(self, driver):
         result = []
 
+        # For some reason (known only to Southampton University and the Devil),
+        # The print friendly report takes its parameters from the last
+        # time the non-print friendly version was run - with all the craziness
+        # that can then ensue.
+        
         driver.get(parse.urljoin(
             EDGE_BASE_URL,
-            self.PAGE_URL,
+            self.SEARCH_URL,
+        ))
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//div[@id="projects"]'))
+        )
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//a[@id="lnkProjects_Organsation"]'))
+        ).click()
+
+        time.sleep(2)
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//a[@id="lnkProjects_Organsation"]'))
+        ).click()
+
+        time.sleep(2)
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//div[@id="projects"]'))
+        )
+
+        driver.get(parse.urljoin(
+            EDGE_BASE_URL,
+            self.PRINT_URL,
         ))
 
         WebDriverWait(driver, 10).until(
