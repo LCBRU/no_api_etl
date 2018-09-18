@@ -33,7 +33,7 @@ def get_td_column_contents(tr, column):
         ).get_attribute('innerHTML')
 
 
-def get_td_keyvalue_pairs(tbody):
+def get_td_keyvalue_pairs(tbody, key_is_label=False):
     result = {}
 
     for tr in tbody.find_elements_by_tag_name('tr'):
