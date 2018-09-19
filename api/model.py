@@ -9,6 +9,7 @@ class EdgeStudy(Base):
     id = Column(Integer, primary_key=True)
     edge_study_id = Column(Integer)
     title = Column(String)
+    full_title = Column(String)
     status = Column(String)
     type = Column(String)
     chief_investigator = Column(String)
@@ -28,7 +29,7 @@ class EdgeStudy(Base):
 
     def __repr__(self):
         return ("<EdgeStudy(id='{}' edge_study_id='{}' title='{}' "
-            "status='{}' type='{}' chief_investigator='{}' "
+            "full_title='{}' status='{}' type='{}' chief_investigator='{}' "
             "planned_start_date='{}' start_date='{}' "
             "planned_end_date='{}' end_date='{}' "
             "local_project_reference='{}' nihr_portfolio_study_id='{}' "
@@ -37,6 +38,7 @@ class EdgeStudy(Base):
             self.id,
             self.edge_study_id,
             self.title,
+            self.full_title,
             self.status,
             self.type,
             self.chief_investigator,
