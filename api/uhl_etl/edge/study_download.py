@@ -139,6 +139,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
 
                 edge_study_id=l.split('/')[-1],
                 title=detail_values.get('Short Title:'),
+                full_title=detail_values.get('Full title:'),
                 status=detail_values.get('Status:'),
                 type=detail_values.get('Project Type:'),
                 chief_investigator=detail_values.get('Chief Investigator:'),
