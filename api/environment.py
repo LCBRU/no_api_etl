@@ -1,6 +1,9 @@
 """Environment Variables
 """
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 EDGE_USERNAME = os.environ["EDGE_USERNAME"]
 EDGE_PASSWORD = os.environ["EDGE_PASSWORD"]
