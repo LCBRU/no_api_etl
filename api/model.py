@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from sqlalchemy import Column, Integer, String, Date, Float
+from sqlalchemy import Column, Integer, String, Date, Float, Boolean
 from api.database import Base
 
 class EdgeStudy(Base):
@@ -27,6 +27,9 @@ class EdgeStudy(Base):
     target_size = Column(Integer)
     actual_recruitment = Column(Integer)
 
+    is_uhl_lead_centre = Column(Boolean)
+    primary_clinical_management_areas = Column(String)
+
     def __repr__(self):
         return ("<EdgeStudy(id='{}' edge_study_id='{}' title='{}' "
             "full_title='{}' status='{}' type='{}' chief_investigator='{}' "
@@ -34,7 +37,8 @@ class EdgeStudy(Base):
             "planned_end_date='{}' end_date='{}' "
             "local_project_reference='{}' nihr_portfolio_study_id='{}' "
             "iras_number='{}' mrec_number='{}' "
-            "target_size='{}' actual_recruitment='{}')>".format(
+            "target_size='{}' actual_recruitment='{}' "
+            "is_uhl_lead_centre='{}' primary_clinical_management_areas='{}')>".format(
             self.id,
             self.edge_study_id,
             self.title,
@@ -52,6 +56,8 @@ class EdgeStudy(Base):
             self.mrec_number,
             self.target_size,
             self.actual_recruitment,
+            self.is_uhl_lead_centre,
+            self.primary_clinical_management_areas,
         ))
 
 

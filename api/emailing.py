@@ -15,7 +15,7 @@ from api.environment import (
 
 def email_error(report_name, error_text, screenshot=None):
     msg = MIMEMultipart()
-    msg['Subject'] = 'Reporter: Error in ' + report_name
+    msg['Subject'] = 'No API ETL: Error in ' + report_name
     msg['To'] = DEFAULT_RECIPIENT
     msg['From'] = EMAIL_FROM_ADDRESS
 

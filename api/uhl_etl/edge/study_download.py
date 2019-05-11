@@ -3,6 +3,7 @@
 import time
 import datetime
 import re
+import pprint
 from bs4 import BeautifulSoup
 from urllib import parse
 from selenium.webdriver.support.ui import WebDriverWait
@@ -50,7 +51,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
         # For some reason (known only to Southampton University and the Devil),
         # The print friendly report takes its parameters from the last
         # time the non-print friendly version was run - with all the craziness
-        # that can then ensue.
+        # that then ensues.
         
         driver.get(parse.urljoin(
             EDGE_BASE_URL,
@@ -132,6 +133,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
             identifier_values = self.get_td_keyvalue_pairs(soup.find(id="identifiers").table)
             detail_values = self.get_td_keyvalue_pairs(soup.find(id="details").table)
             participant_values = self.get_td_keyvalue_pairs(soup.find(id="participants").table)
+            attribute_values = self.get_attribute_keyvalue_pairs(driver)
 
             e= EdgeStudy(
 
@@ -155,6 +157,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
                 end_date=self.parsed_date_or_none(
                     detail_values.get('End Date:')
                 ),
+                disease_area=detail_values.get('Disease area:').split(" ")[0].strip(),
 
                 # Identifiers
 
@@ -167,6 +170,11 @@ class EdgeStudyDetailDownload(SeleniumEtl):
 
                 target_size=participant_values.get('Target size:'),
                 actual_recruitment=(participant_values.get('Actual recruitment:') or '').split(" ")[0].strip(),
+
+                # Attributes
+
+                is_uhl_lead_centre=(attribute_values.get('Is UHL Lead Centre?') or '').lower() == 'yes',
+                primary_clinical_management_areas=attribute_values.get('Primary Clinical Management Areas'),
             )
 
             result.append(e)
@@ -305,12 +313,41 @@ class EdgeStudyDetailDownload(SeleniumEtl):
     def get_td_keyvalue_pairs(self, table):
         result = {}
 
-        for tr in table.tbody.find_all('tr'):
+        for tr in table.find_all('tr'):
             td = tr.find_all('td')
 
-            key = td[0].get_text().strip()
-            value = td[1].get_text().strip()
+            if len(td) > 1:
+                key = td[0].get_text().strip()
+                value = td[1].get_text().strip()
 
-            result[key] = value
+                result[key] = value
+
+        return result
+
+
+    def get_attribute_keyvalue_pairs(self, driver):
+        result = {}
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//a[@id="tabAttributes"]'))
+        ).click()
+
+        time.sleep(2)
+
+        WebDriverWait(driver, 10).until(
+            ec.presence_of_element_located((By.XPATH, '//a[text()="Mandatory Category 1 (UHL)"]'))
+        ).click()
+
+        soup = BeautifulSoup(driver.page_source, "lxml")
+
+        for table in soup.find_all("table", attrs={"data-bind": "foreach: ProjectAttributes"}):
+            for tr in table.find_all('tr'):
+                td = tr.find_all('td')
+
+                if len(td) > 3:
+                    key = td[2].get_text().strip()
+                    value = td[3].get_text().strip()
+
+                    result[key] = value
 
         return result
