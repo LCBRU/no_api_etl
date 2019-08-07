@@ -28,7 +28,7 @@ class Schedule(Enum):
 
     @staticmethod
     def daily(func):
-        schedule.every().day.at("08:00").do(func)
+        schedule.every().day.at("20:00").do(func)
 
     @staticmethod
     def weekly(func):
