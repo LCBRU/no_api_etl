@@ -28,3 +28,17 @@ def etl_central_session():
 def etl_databases_engine():
     engine = create_engine(ETL_DATABASES_CONNECTION_STRING, echo=DATABASE_ECHO)
     yield engine
+
+
+@contextmanager
+def engine(connection_string):
+    yield create_engine(connection_string, echo=DATABASE_ECHO)
+
+@contextmanager
+def connection(connection_string):
+    engine = create_engine(connection_string, echo=DATABASE_ECHO)
+    connection = engine.connect()
+    try:
+        yield engine
+    finally:
+        connection.close()

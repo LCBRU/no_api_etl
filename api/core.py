@@ -1,7 +1,9 @@
 import schedule
+import threading
 import logging
 import re
 import time
+import datetime
 import traceback
 import importlib
 import pkgutil
@@ -11,6 +13,8 @@ from tempfile import mkstemp
 from enum import Enum
 from api.emailing import email_error
 from api.selenium import SeleniumGrid
+from .model import EtlTask, EtlTaskMessage
+from .database import etl_central_session
 
 
 class Schedule(Enum):
@@ -43,33 +47,87 @@ class Schedule(Enum):
         pass
 
 
-class Etl:
-    def __init__(self, name=None, schedule=None):
-
+class EtlStep:
+    def __init__(self, name=None):
         # Unpick CamelCase
         self._name = name or type(self).__name__
         self._name = re.sub('([a-z])([A-Z])', r'\1 \2', self._name)
+
+    def run(self):
+        try:
+            self.log_start()
+            self.do_etl()
+            self.log_end()
+
+            logging.info("{} ran".format(self._name))
+
+        except KeyboardInterrupt as e:
+            raise e
+        except Exception as e:
+            self.log(
+                message=e,
+                attachment=traceback.format_exc(),
+                log_level='ERROR',
+            )
+            logging.error(traceback.format_exc())
+            email_error(self._name, traceback.format_exc())
+
+    def log_start(self):
+        with etl_central_session() as session:
+            self._task = EtlTask(
+                name=self._name,
+                start_datetime=datetime.datetime.now()
+            )
+            session.add(self._task)
+            session.commit()
+
+    def log_end(self):
+        end_datetime = datetime.datetime.now()
+        with etl_central_session() as session:
+            task = session.merge(self._task)
+            task.end_datetime = end_datetime
+            session.add(task)
+            session.commit()
+
+        duration = (task.end_datetime - task.start_datetime).total_seconds()
+
+        if duration < 120:
+            duration_message = '{:.1f} seconds'.format(duration)
+        else:
+            duration_message = '{:.0f} minutes'.format(duration // 60)
+
+        self.log('Task {} ran for {}'.format(self._name, duration_message))
+
+    def log(self, message, attachment=None, log_level='INFO'):
+        with etl_central_session() as session:
+            task = session.merge(self._task)
+            task_message = EtlTaskMessage(
+                etl_task_id=task.id,
+                message_datetime=datetime.datetime.now(),
+                message_type=log_level,
+                message=message,
+                attachment=attachment,
+            )
+            session.add(task_message)
+            session.commit()
+        
+        level = getattr(logging, log_level.upper())
+        logging.log(level, '{}: {}'.format(self._name, message))
+
+    def do_etl(self):
+        pass
+
+
+class Etl(EtlStep):
+    def __init__(self, name=None, schedule=None):
+        super().__init__(name)
+
         self._schedule = schedule or Schedule.weekly
 
     def schedule(self):
 
         self._schedule(self.run)
         logging.info("{} scheduled".format(self._name))
-
-    def run(self):
-        try:
-            self.do_etl()
-
-            logging.info("{} ran".format(self._name))
-
-        except KeyboardInterrupt as e:
-            raise e
-        except Exception:
-            logging.error(traceback.format_exc())
-            email_error(self._name, traceback.format_exc())
-
-    def do_etl(self):
-        pass
 
 
 class SeleniumEtl(Etl):

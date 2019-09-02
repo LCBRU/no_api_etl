@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from sqlalchemy import Column, Integer, String, Date, Float, Boolean
+from sqlalchemy import Column, Integer, String, Date, Float, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from api.database import Base
 
 class EdgeStudy(Base):
@@ -194,3 +195,24 @@ class CrfmStudy(Base):
             self.eudract,
             self.status,
         ))
+
+
+class EtlTask(Base):
+    __tablename__ = 'etl_task'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    start_datetime = Column(Date)
+    end_datetime = Column(Date)
+
+
+class EtlTaskMessage(Base):
+    __tablename__ = 'etl_task_message'
+
+    id = Column(Integer, primary_key=True)
+    etl_task_id = Column(Integer, ForeignKey(EtlTask.id))
+    etl_task = relationship(EtlTask)
+    message_datetime = Column(Date)
+    message_type = Column(String)
+    message = Column(String)
+    attachment = Column(String)
