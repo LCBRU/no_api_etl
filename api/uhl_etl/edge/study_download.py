@@ -6,15 +6,16 @@ import re
 import pprint
 from bs4 import BeautifulSoup
 from urllib import parse
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 from api.core import SeleniumEtl, Schedule
-from api.model import EdgeStudy, EdgeStudySite
+from api.model import EdgeStudy, EdgeStudySite, EdgeAnnualReport
 from api.selenium import SeleniumGrid, get_td_keyvalue_contents
 from api.database import etl_central_session
 from api.environment import EDGE_BASE_URL
 from api.uhl_etl.edge import login
+from api.emailing import email_error
 
 
 class EdgeStudyDetailDownload(SeleniumEtl):
@@ -119,6 +120,8 @@ class EdgeStudyDetailDownload(SeleniumEtl):
         result = []
 
         for l in study_links:
+            self.log("Getting study details '{}'".format(l))
+
             driver.get(parse.urljoin(
                 EDGE_BASE_URL,
                 l,
@@ -135,7 +138,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
             participant_values = self.get_td_keyvalue_pairs(soup.find(id="participants").table)
             attribute_values = self.get_attribute_keyvalue_pairs(driver)
 
-            e= EdgeStudy(
+            e = EdgeStudy(
 
                 # Details
 
@@ -183,11 +186,13 @@ class EdgeStudyDetailDownload(SeleniumEtl):
 
 
     def get_study_site_details(self, driver, study_site_links):
+
         result = []
 
         whitespace = re.compile('\s')
 
         for l in study_site_links:
+            self.log("Getting study site details '{}'".format(l))
 
             driver.get(parse.urljoin(
                 EDGE_BASE_URL,
@@ -351,3 +356,112 @@ class EdgeStudyDetailDownload(SeleniumEtl):
                     result[key] = value
 
         return result
+
+
+class EdgeAnnualReportDownload(SeleniumEtl):
+
+    REPORTS = 'SharedReports'
+
+    def __init__(self):
+        super().__init__(schedule=Schedule.daily)
+
+    def do_selenium_etl(self, driver):
+        studies = self.get_studies(driver)
+
+        with etl_central_session() as session:
+            self.log("Deleting old studies")
+
+            session.execute('DELETE FROM {};'.format(EdgeAnnualReport.__tablename__))
+
+            self.log("Creating new studies")
+            for s in studies:
+                session.add(s)
+
+
+    def get_studies(self, driver):
+        self.log("Getting studies")
+
+        result = []
+
+        with etl_central_session() as session:
+
+            login(driver)
+
+            driver.get(parse.urljoin(
+                EDGE_BASE_URL,
+                self.REPORTS,
+            ))
+
+            WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.XPATH, '//select/option[text()="Dan BRC Annual Report"]'))
+            ).click()
+            WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.XPATH, '//input[@type="button" and @value="Submit query"]'))
+            ).click()
+            WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.XPATH, '//div[@id="results"]/table'))
+            )
+
+            soup = BeautifulSoup(driver.page_source, "lxml")
+
+            results = soup.find(id='results').find('table').find('tbody')
+
+            for tr in results.find_all('tr'):
+                td = tr.find_all('td')
+
+                self.log("Downloadiung study '{}'".format(td[2].get_text().strip()))
+
+                e = EdgeAnnualReport(
+                    project_id=int(td[0].get_text().strip()),
+                    full_title=td[1].get_text().strip(),
+                    short_title=td[2].get_text().strip(),
+                    mrec_number=td[3].get_text().strip(),
+                    principle_investigator=td[4].get_text().strip(),
+                    pi_orcid=td[5].get_text().strip(),
+                    start_date=self.parsed_date_or_none(td[6].get_text().strip()),
+                    end_date=self.parsed_date_or_none(td[7].get_text().strip()),
+                    status=td[8].get_text().strip(),
+                    research_theme=td[9].get_text().strip(),
+                    ukcrc_health_category=td[10].get_text().strip(),
+                    main_speciality=td[11].get_text().strip(),
+                    disease_area=td[12].get_text().strip(),
+                    project_type=td[13].get_text().strip(),
+                    primary_intervention_or_area=td[14].get_text().strip(),
+                    randomisation=td[15].get_text().strip(),
+                    recruited_total=int(td[16].get_text().strip()),
+                    funders=td[17].get_text().strip(),
+                    funding_category=td[18].get_text().strip(),
+                    total_external_funding_awarded=td[19].get_text().strip(),
+                    is_uhl_lead_centre=self.parsed_boolean_or_none(td[20].get_text().strip()),
+                    lead_centrename_if_not_uhl=td[21].get_text().strip(),
+                    multicentre=self.parsed_boolean_or_none(td[22].get_text().strip()),
+                    first_in_human_centre=self.parsed_boolean_or_none(td[23].get_text().strip()),
+                    link_to_nhir_translational_research_collaboration=self.parsed_boolean_or_none(td[24].get_text().strip()),
+                )
+
+                result.append(e)
+
+            self.log("Getting studies: COMPLETED")
+
+            return result
+
+
+    def parsed_date_or_none(self, date_string):
+        if date_string:
+            return datetime.datetime.strptime(
+                date_string,
+                "%d/%m/%Y"
+            ).date()
+        else:
+            return None
+
+    def parsed_boolean_or_none(self, boolean_string):
+        if boolean_string == 'Yes':
+            return True
+        elif boolean_string == 'No':
+            return False
+        else:
+            return None
+
+
+

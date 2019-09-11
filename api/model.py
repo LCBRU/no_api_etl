@@ -159,6 +159,37 @@ class EdgeStudySite(Base):
         ))
 
 
+class EdgeAnnualReport(Base):
+    __tablename__ = 'edge_annual_report'
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer)
+    full_title = Column(String)
+    short_title = Column(String)
+    mrec_number = Column(String)
+    principle_investigator = Column(String)
+    pi_orcid = Column(String)
+    start_date = Column(Date)
+    end_date = Column(Date)
+    status = Column(String)
+    research_theme = Column(String)
+    ukcrc_health_category = Column(String)
+    main_speciality = Column(String)
+    disease_area = Column(String)
+    project_type = Column(String)
+    primary_intervention_or_area = Column(String)
+    randomisation = Column(String)
+    recruited_total = Column(Integer)
+    funders = Column(String)
+    funding_category = Column(String)
+    total_external_funding_awarded = Column(String)
+    is_uhl_lead_centre = Column(Boolean)
+    lead_centrename_if_not_uhl = Column(String)
+    multicentre = Column(Boolean)
+    first_in_human_centre = Column(Boolean)
+    link_to_nhir_translational_research_collaboration = Column(Boolean)
+
+
 class CrfmStudy(Base):
     __tablename__ = 'crfm_study'
 
