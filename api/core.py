@@ -86,10 +86,10 @@ class EtlStep:
         with etl_central_session() as session:
             task = session.merge(self._task)
             task.end_datetime = end_datetime
+            duration = (task.end_datetime - task.start_datetime).total_seconds()
             session.add(task)
             session.commit()
 
-        duration = (task.end_datetime - task.start_datetime).total_seconds()
 
         if duration < 120:
             duration_message = '{:.1f} seconds'.format(duration)

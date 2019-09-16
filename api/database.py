@@ -19,20 +19,25 @@ def etl_central_session():
 
     except Exception as e:
         session.rollback()
+        session.close()
         raise e
     else:
         session.commit()
+        session.close()
 
 
 @contextmanager
 def etl_databases_engine():
     engine = create_engine(ETL_DATABASES_CONNECTION_STRING, echo=DATABASE_ECHO)
     yield engine
+    engine.dispose()
 
 
 @contextmanager
 def engine(connection_string):
-    yield create_engine(connection_string, echo=DATABASE_ECHO)
+    engine = create_engine(connection_string, echo=DATABASE_ECHO)
+    yield engine
+    engine.dispose()
 
 @contextmanager
 def connection(connection_string):
