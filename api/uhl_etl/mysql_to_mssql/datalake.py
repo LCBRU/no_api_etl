@@ -134,6 +134,13 @@ class MysqlToMssqlStep(EtlStep):
         try:
             creates_file.seek(0)
             ddl = creates_file.read()
+
+            self.log(
+                message='Recreating database',
+                attachment=ddl,
+                log_level='INFO',
+            )
+
             conn.execute_non_query(ddl)
 
         except:
@@ -251,7 +258,6 @@ class MysqlToMssqlStep(EtlStep):
             for i, chunk in enumerate(grouper_it(BATCH_SIZE, inserts_file), 1):
                 try:
                     inserts = ''.join(chunk)
-                    total_records += len(inserts.split('\n'))
 
                     # Placing all inserts in one transaction,
                     # as opposed to an implicit transaction for
@@ -268,21 +274,15 @@ class MysqlToMssqlStep(EtlStep):
                     inserts = inserts.replace('\\\'', '\'\'')
                     inserts = inserts.replace('\\%', '%')
                     inserts = inserts.replace('\\_', '_')
-                    # inserts = inserts.replace('/', '\\/')
                     inserts = inserts.replace('{escaped_backslash}', '\\\\')
 
                     # MYSQL uses '0000-00-00' for NULL dates
-                    inserts = re.sub(r'\'0000-00-00\'', 'NULL', inserts)
-
-                    inserts_log_file = NamedTemporaryFile(delete=False, mode='w+t')
-                    inserts_log_file.write(inserts)
+                    inserts = inserts.replace('\'0000-00-00\'', 'NULL')
 
                     conn.execute_non_query(inserts)
 
-                    inserts_log_file.close()
-                    os.unlink(inserts_log_file.name)
-
-                    self.log("{:,} records loaded (batch {})".format(total_records, i))
+                    if i % 100 == 0:
+                        self.log("Approximately {:,} records loaded (batch {})".format(BATCH_SIZE * i, i))
                 except:
                     self.log(
                         message='Error loading data',
@@ -339,25 +339,33 @@ class MysqlToMssqlStep(EtlStep):
         comment_on = False
         is_comment = False
 
-        for line in MyOut.stdout:
-            is_comment = False
-            if re.match(re_comment, line):
-                continue
-            if re.match(re_comment_start, line):
-                comment_on = True
-                is_comment = True
-            if re.match(re_comment_end, line):
-                comment_on = False
-                is_comment = True
-            if comment_on or is_comment:
-                continue
+        ddl = MyOut.stdout.read()
 
+        self.log(
+            message='Given DDL',
+            attachment=ddl,
+            log_level='INFO',
+        )
+
+        # Remove multiline comments
+        ddl = re.sub(re.compile('/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', ddl)
+        # Remove single line comments
+        ddl = re.sub(re.compile('^--.*$', re.MULTILINE), '', ddl)
+
+        self.log(
+            message='DDL Without comments',
+            attachment=ddl,
+            log_level='INFO',
+        )
+
+        for line in ddl.splitlines():
             # Remove character set
             line = re.sub(r'CHARACTER SET [^\s]+\b', ' ', line)
             line = re.sub(r' COLLATE [^\s]+\b', ' ', line)
             line = re.sub(r' COLLATE utf8_bin', ' COLLATE SQL_Latin1_General_CP1_CS_AS', line)
             line = re.sub(r' COMMENT \'.*\'', '', line)
             line = re.sub(r'SET .*', '', line)
+            line = re.sub(r'DELIMITER.*', '', line)
 
             # Data type conversions
             line = re.sub(r'\bunsigned\b', '', line)
@@ -421,7 +429,8 @@ class MysqlToMssqlStep(EtlStep):
                         )
                     )
             else:
-                creates_file.write(line)
+                if line:
+                    creates_file.write(line + '\n')
         
         errors_file.flush()
         errors_file.seek(0)
@@ -610,16 +619,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                # DataLake_RedCapBriccsStep,
-                # DataLake_OpenSpecimenStep,
-                # DataLake_BriccsStep,
-                # DataLake_BriccsNorthamtonStep,
-                # DataLake_CivicrmStep,
-                # DataLake_IdentityStep,
+                DataLake_RedCapBriccsStep,
+                DataLake_OpenSpecimenStep,
+                DataLake_BriccsStep,
+                DataLake_BriccsNorthamtonStep,
+                DataLake_CivicrmStep,
+                DataLake_IdentityStep,
                 DataLake_GenvascGpPortalStep,
-                # DataLake_RedCapBriccsExtStep,
-                # DataLake_RedCapBriccsUoLCrfStep,
-                # DataLake_RedCapBriccsUoLSurveyStep,
+                DataLake_RedCapBriccsExtStep,
+                DataLake_RedCapBriccsUoLCrfStep,
+                DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
