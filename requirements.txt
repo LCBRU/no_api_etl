@@ -10,5 +10,5 @@ requests
 beautifulsoup4
 lxml
 python-dotenv
-pymssql
 pandas
+pymssql
