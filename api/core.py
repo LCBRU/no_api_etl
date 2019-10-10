@@ -43,6 +43,10 @@ class Schedule(Enum):
         schedule.every(4).weeks.do(func)
 
     @staticmethod
+    def daily_at_4am(func):
+        schedule.every().day.at("04:00").do(func)
+
+    @staticmethod
     def never(func):
         pass
 
