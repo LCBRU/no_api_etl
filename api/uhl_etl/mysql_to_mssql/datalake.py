@@ -224,6 +224,7 @@ class MysqlToMssqlStep(EtlStep):
                 '--skip-comments',
                 '--skip-opt',
                 '--skip-set-charset',
+                '--skip-triggers',
                 '--default-character-set=utf8',
                 '--hex-blob',
                 '--single-transaction',
@@ -257,26 +258,14 @@ class MysqlToMssqlStep(EtlStep):
 
             for i, chunk in enumerate(grouper_it(BATCH_SIZE, inserts_file), 1):
                 try:
-
-                    # current_table_portion = ''
-
-                    # inserts = 'BEGIN TRANSACTION\nSET NOCOUNT ON'
-
-                    # for c in chunk:
-                    #     val_index = c.index('VALUES (') + 6
-
-                    #     table_portion = c[:val_index]
-
-                    #     if table_portion != current_table_portion:
-                    #         inserts += ';'
-                    #         inserts += '\n' + c[:-2]
-                    #         current_table_portion = table_portion
-                    #     else:
-                    #         inserts += ',\n' + c[val_index:-2]
-
-                    # inserts += ';\nCOMMIT'
-
                     inserts = ''.join(chunk)
+
+                    # Remove multiline comments
+                    inserts = re.sub(re.compile('/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', inserts)
+                    # Remove single line comments
+                    inserts = re.sub(re.compile('^--.*$', re.MULTILINE), '', inserts)
+                    # Remove DELIMITERS
+                    inserts = re.sub(re.compile('^DELIMITER.*$', re.MULTILINE), '', inserts)
 
                     # Placing all inserts in one transaction,
                     # as opposed to an implicit transaction for
@@ -326,6 +315,7 @@ class MysqlToMssqlStep(EtlStep):
             '--skip-comments',
             '--skip-opt',
             '--skip-set-charset',
+            '--skip-triggers',
             '-h',
             self.source_database_host,
             '-u',
