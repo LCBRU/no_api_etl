@@ -417,7 +417,7 @@ class MysqlToMssqlStep(EtlStep):
             foreign_key_match = re.match(re_foreign_key, line)
 
             if index_match:
-                if not index_match.group('key_name') in self.keys_to_ignore:
+                if not index_match.group('key_name').replace('"', '') in self.keys_to_ignore:
                     columns = re.sub(r'\(\d+\)', '', index_match.group('columns')) # Delete strange number in brackets
                     indexes_file.write(
                         'CREATE {} INDEX {} ON {} {};\n'.format(
@@ -499,7 +499,15 @@ class DataLake_IdentityStep(DataLakeStep):
     def __init__(self):
         super().__init__(
             database_name='identity',
-            keys_to_ignore=['"uix_bioresource_id_bioresource_id_provider_id_legacy_number"']
+            keys_to_ignore=[
+                'uix_bioresource_id_bioresource_id_provider_id_legacy_number',
+                'ix_demographics_request_column_definition_dob_column_id',
+                'ix_demographics_request_column_definition_family_name_column_id',
+                'ix_demographics_request_column_definition_gender_column_id',
+                'ix_demographics_request_column_definition_given_name_column_id',
+                'ix_demographics_request_column_definition_nhs_number_column_id',
+                'ix_demographics_request_column_definition_postcode_column_id',
+            ]
         )
 
 
@@ -628,16 +636,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                DataLake_RedCapBriccsStep,
-                DataLake_OpenSpecimenStep,
-                DataLake_BriccsStep,
-                DataLake_BriccsNorthamtonStep,
-                DataLake_CivicrmStep,
+                # DataLake_RedCapBriccsStep,
+                # DataLake_OpenSpecimenStep,
+                # DataLake_BriccsStep,
+                # DataLake_BriccsNorthamtonStep,
+                # DataLake_CivicrmStep,
                 DataLake_IdentityStep,
-                DataLake_GenvascGpPortalStep,
-                DataLake_RedCapBriccsExtStep,
-                DataLake_RedCapBriccsUoLCrfStep,
-                DataLake_RedCapBriccsUoLSurveyStep,
+                # DataLake_GenvascGpPortalStep,
+                # DataLake_RedCapBriccsExtStep,
+                # DataLake_RedCapBriccsUoLCrfStep,
+                # DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
