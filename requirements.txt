@@ -11,4 +11,4 @@ beautifulsoup4
 lxml
 python-dotenv
 pandas
-pymssql
+pymssql<3.0
