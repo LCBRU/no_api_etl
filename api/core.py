@@ -155,9 +155,13 @@ class SeleniumEtl(Etl):
                     screenshot=driver.get_screenshot_as_png(),
                 )
 
+        self.do_post_selenium_etl()
+
     def do_selenium_etl(self, driver):
         pass
 
+    def do_post_selenium_etl(self):
+        pass
 
 def get_concrete_etls(cls=None):
 

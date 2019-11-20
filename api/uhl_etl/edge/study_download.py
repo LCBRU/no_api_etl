@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 from api.core import SeleniumEtl, Schedule
 from api.model import EdgeStudy, EdgeStudySite, EdgeAnnualReport
-from api.selenium import SeleniumGrid, get_td_keyvalue_contents
+from api.selenium import SeleniumGrid
 from api.database import etl_central_session
 from api.environment import EDGE_BASE_URL
 from api.uhl_etl.edge import login
@@ -28,21 +28,22 @@ class EdgeStudyDetailDownload(SeleniumEtl):
 
     def do_selenium_etl(self, driver):
 
-        with etl_central_session() as session:
-
             login(driver)
 
             study_site_links = self.get_study_site_links(driver)
-            study_site_details = self.get_study_site_details(driver, study_site_links)
+            self._study_site_details = self.get_study_site_details(driver, study_site_links)
             study_links = self.get_study_links(driver, study_site_links)
-            study_details = self.get_study_details(driver, study_links)
+            self._study_details = self.get_study_details(driver, study_links)
+
+    def do_post_selenium_etl(self):
+        with etl_central_session() as session:
 
             session.execute('DELETE FROM {};'.format(EdgeStudy.__tablename__))
             session.execute('DELETE FROM {};'.format(EdgeStudySite.__tablename__))
 
-            for s in study_details:
+            for s in self._study_details:
                 session.add(s)
-            for s in study_site_details:
+            for s in self._study_site_details:
                 session.add(s)
 
 
@@ -366,17 +367,17 @@ class EdgeAnnualReportDownload(SeleniumEtl):
         super().__init__(schedule=Schedule.daily)
 
     def do_selenium_etl(self, driver):
-        studies = self.get_studies(driver)
+        self._studies = self.get_studies(driver)
 
+    def do_post_selenium_etl(self):
         with etl_central_session() as session:
             self.log("Deleting old studies")
 
             session.execute('DELETE FROM {};'.format(EdgeAnnualReport.__tablename__))
 
             self.log("Creating new studies")
-            for s in studies:
+            for s in self._studies:
                 session.add(s)
-
 
     def get_studies(self, driver):
         self.log("Getting studies")
