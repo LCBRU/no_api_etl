@@ -24,6 +24,8 @@ def etl_central_session():
     else:
         session.commit()
         session.close()
+    finally:
+        engine.dispose
 
 
 @contextmanager
