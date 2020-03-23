@@ -428,7 +428,7 @@ class MysqlToMssqlStep(EtlStep):
                         )
                     )
             elif foreign_key_match:
-                if not foreign_key_match.group('constraint_name') in self.constraints_to_ignore:
+                if not foreign_key_match.group('constraint_name').replace('"', '') in self.constraints_to_ignore:
                     foreign_keys_file.write(
                         'ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY {} REFERENCES {};\n'.format(
                             current_table_name,
@@ -489,8 +489,8 @@ class DataLake_CivicrmStep(DataLakeStep):
         super().__init__(
             database_name='civicrmlive_docker4716',
             keys_to_ignore=[
-                '"index_image_URL_128"',
-                '"UI_external_identifier"',
+                'index_image_URL_128',
+                'UI_external_identifier',
             ]
         )
 
@@ -516,7 +516,7 @@ class DataLake_GenvascGpPortalStep(DataLakeStep):
         super().__init__(
             database_name='genvasc_gp_portal',
             keys_to_ignore=[
-                '"idx_recruit_civicrm_case_id"',
+                'idx_recruit_civicrm_case_id',
             ],
         )
 
@@ -526,27 +526,27 @@ class DataLake_RedCapStep(DataLakeStep):
         super().__init__(
             database_name=database_name,
             keys_to_ignore=[
-                '"password_reset_key"',
-                '"nonrule_proj_record_event_field"',
-                '"pd_rule_proj_record_event_field"',
-                '"rule_record_event"',
-                '"map_id_mr_id_timestamp_value"',
-                '"project_id_comment"',
-                '"log_view_id"',
-                '"log_view_id_time"',
-                '"twilio_from_number"',
-                '"project_note"',
-                '"logo"',
-                '"email_verify_code"',
-                '"email2_verify_code"',
-                '"email3_verify_code"',
-                '"api_token"',
-                '"user_comments"',
-                '"project_field_prid"',
-                '"legacy_hash"',
-                '"access_code"',
-                '"access_code_numeral"',
-                '"ss_id_record"',
+                'password_reset_key',
+                'nonrule_proj_record_event_field',
+                'pd_rule_proj_record_event_field',
+                'rule_record_event',
+                'map_id_mr_id_timestamp_value',
+                'project_id_comment',
+                'log_view_id',
+                'log_view_id_time',
+                'twilio_from_number',
+                'project_note',
+                'logo',
+                'email_verify_code',
+                'email2_verify_code',
+                'email3_verify_code',
+                'api_token',
+                'user_comments',
+                'project_field_prid',
+                'legacy_hash',
+                'access_code',
+                'access_code_numeral',
+                'ss_id_record',
             ]
         )
 
@@ -576,14 +576,14 @@ class DataLake_OpenSpecimenStep(DataLakeStep):
         super().__init__(
             database_name='uol_openspecimen',
             keys_to_ignore=[
-                '"barcode"',
-                '"cat_cpr_ext_subj_id_uq"',
-                '"os_cp_code_uq"',
-                '"social_security_number"',
-                '"catissue_site_code_uq"',
-                '"cat_spec_cp_id_label_uq"',
-                '"cat_spec_cp_id_barcode_uq"',
-                '"name"',
+                'barcode',
+                'cat_cpr_ext_subj_id_uq',
+                'os_cp_code_uq',
+                'social_security_number',
+                'catissue_site_code_uq',
+                'cat_spec_cp_id_label_uq',
+                'cat_spec_cp_id_barcode_uq',
+                'name',
             ],
             tables_to_ignore=[
                 'os_container_hierarchy_view',
@@ -592,35 +592,35 @@ class DataLake_OpenSpecimenStep(DataLakeStep):
                 'os_storage_cont_stats_view',
             ],
             constraints_to_ignore=[
-                '"fk_cat_scst_scid_container_ids"',
-                '"fkc1a3c8cc7f0c2c7"',
-                '"fk49b8de5dac76c0"',
-                '"fk_cat_cc_cid_cat_sc_id"',
-                '"fk_cat_csr_roleid_cat_role_id"',
-                '"fk_distri_distri_sp_event"',
-                '"fk703b902159a3ce5c"',
-                '"fk28429d0159a3ce5c"',
-                '"fk847da57775255ca5"',
-                '"fk_querytag_obj_id"',
-                '"fk_dyoqily0s2m061bxvxik0wou5"',
-                '"fk_cx3wxvecf9prg0ulwaw3bwb2s"',
-                '"fk_spec_coll_event"',
-                '"fk_9xhryw88q1uv2s2oxcn53rsdh"',
-                '"fk_4rwywid6his5vawygbbok91h7"',
-                '"fk_r51pe9nboapngjjh34hbm3i2s"',
-                '"fk_c4n30y077ycht0hl58ri6fko7"',
-                '"fk_pkjkhvgsgjkgpwjrg65viug05"',
-                '"fk_hs8crr2d3nwca17qqfli82ym"',
-                '"fk_qaypykblepjftrcv2xe056rvh"',
-                '"fk_spec_rec_event"',
-                '"fk_isb8mltbk8qaa3q4epkoy9ell"',
-                '"fk_w3jps5e5byvocjpg18nuyffy"',
-                '"fk_8bytnb90kr6dd9hr194p9ei57"',
-                '"fk_ctda38ykfjtwuljy7pb6y753d"',
-                '"fk_m9slxw75ecrvrk31nwwamd7ng"',
-                '"fk_auth_tokens_la_log_id"',
-                '"fk_cfg_props_module_id"',
-                '"fk_7nmb9yn4uq0fojtbh2nl7stv2"',
+                'fk_cat_scst_scid_container_ids',
+                'fkc1a3c8cc7f0c2c7',
+                'fk49b8de5dac76c0',
+                'fk_cat_cc_cid_cat_sc_id',
+                'fk_cat_csr_roleid_cat_role_id',
+                'fk_distri_distri_sp_event',
+                'fk703b902159a3ce5c',
+                'fk28429d0159a3ce5c',
+                'fk847da57775255ca5',
+                'fk_querytag_obj_id',
+                'fk_dyoqily0s2m061bxvxik0wou5',
+                'fk_cx3wxvecf9prg0ulwaw3bwb2s',
+                'fk_spec_coll_event',
+                'fk_9xhryw88q1uv2s2oxcn53rsdh',
+                'fk_4rwywid6his5vawygbbok91h7',
+                'fk_r51pe9nboapngjjh34hbm3i2s',
+                'fk_c4n30y077ycht0hl58ri6fko7',
+                'fk_pkjkhvgsgjkgpwjrg65viug05',
+                'fk_hs8crr2d3nwca17qqfli82ym',
+                'fk_qaypykblepjftrcv2xe056rvh',
+                'fk_spec_rec_event',
+                'fk_isb8mltbk8qaa3q4epkoy9ell',
+                'fk_w3jps5e5byvocjpg18nuyffy',
+                'fk_8bytnb90kr6dd9hr194p9ei57',
+                'fk_ctda38ykfjtwuljy7pb6y753d',
+                'fk_m9slxw75ecrvrk31nwwamd7ng',
+                'fk_auth_tokens_la_log_id',
+                'fk_cfg_props_module_id',
+                'fk_7nmb9yn4uq0fojtbh2nl7stv2',
             ]
         )
 
