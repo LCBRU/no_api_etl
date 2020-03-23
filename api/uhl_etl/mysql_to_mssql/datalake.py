@@ -261,11 +261,11 @@ class MysqlToMssqlStep(EtlStep):
                     inserts = ''.join(chunk)
 
                     # Remove multiline comments
-                    inserts = re.sub(re.compile('/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', inserts)
+                    inserts = re.sub(re.compile(r'/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', inserts)
                     # Remove single line comments
-                    inserts = re.sub(re.compile('^--.*$', re.MULTILINE), '', inserts)
+                    inserts = re.sub(re.compile(r'^--.*$', re.MULTILINE), '', inserts)
                     # Remove DELIMITERS
-                    inserts = re.sub(re.compile('^DELIMITER.*$', re.MULTILINE), '', inserts)
+                    inserts = re.sub(re.compile(r'^DELIMITER.*$', re.MULTILINE), '', inserts)
 
                     # Placing all inserts in one transaction,
                     # as opposed to an implicit transaction for
@@ -338,15 +338,9 @@ class MysqlToMssqlStep(EtlStep):
         tables = []
         current_table_name = ''
 
-        re_comment = re.compile('(/\*.*/\*/|--).*')
-        re_comment_start = re.compile('/\*')
-        re_comment_end = re.compile('.*\*/.*')
-        re_create_table = re.compile('CREATE TABLE (?P<table_name>".*")')
-        re_index = re.compile('\s*(?P<unique>UNIQUE|) KEY (?P<key_name>".*") (?P<columns>\(.*\))')
-        re_foreign_key = re.compile('\s*CONSTRAINT (?P<constraint_name>".*") FOREIGN KEY (?P<columns>\(.*\)) REFERENCES (?P<references>".*" \(.*\))')
-
-        comment_on = False
-        is_comment = False
+        re_create_table = re.compile(r'CREATE TABLE (?P<table_name>".*")')
+        re_index = re.compile(r'\s*(?P<unique>UNIQUE|) KEY (?P<key_name>".*") (?P<columns>\(.*\))')
+        re_foreign_key = re.compile(r'\s*CONSTRAINT (?P<constraint_name>".*") FOREIGN KEY (?P<columns>\(.*\)) REFERENCES (?P<references>".*" \(.*\))')
 
         ddl = MyOut.stdout.read()
 
@@ -357,9 +351,9 @@ class MysqlToMssqlStep(EtlStep):
         )
 
         # Remove multiline comments
-        ddl = re.sub(re.compile('/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', ddl)
+        ddl = re.sub(re.compile(r'/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', ddl)
         # Remove single line comments
-        ddl = re.sub(re.compile('^--.*$', re.MULTILINE), '', ddl)
+        ddl = re.sub(re.compile(r'^--.*$', re.MULTILINE), '', ddl)
 
         self.log(
             message='DDL Without comments',
@@ -636,16 +630,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                DataLake_RedCapBriccsStep,
-                DataLake_OpenSpecimenStep,
-                DataLake_BriccsStep,
-                DataLake_BriccsNorthamtonStep,
-                DataLake_CivicrmStep,
+                # DataLake_RedCapBriccsStep,
+                # DataLake_OpenSpecimenStep,
+                # DataLake_BriccsStep,
+                # DataLake_BriccsNorthamtonStep,
+                # DataLake_CivicrmStep,
                 DataLake_IdentityStep,
-                DataLake_GenvascGpPortalStep,
-                DataLake_RedCapBriccsExtStep,
-                DataLake_RedCapBriccsUoLCrfStep,
-                DataLake_RedCapBriccsUoLSurveyStep,
+                # DataLake_GenvascGpPortalStep,
+                # DataLake_RedCapBriccsExtStep,
+                # DataLake_RedCapBriccsUoLCrfStep,
+                # DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
