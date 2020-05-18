@@ -35,6 +35,30 @@ class Schedule(Enum):
         schedule.every().day.at("20:00").do(func)
 
     @staticmethod
+    def daily_6pm(func):
+        schedule.every().day.at("18:00").do(func)
+
+    @staticmethod
+    def daily_7pm(func):
+        schedule.every().day.at("19:00").do(func)
+
+    @staticmethod
+    def daily_8pm(func):
+        schedule.every().day.at("20:00").do(func)
+
+    @staticmethod
+    def daily_9pm(func):
+        schedule.every().day.at("21:00").do(func)
+
+    @staticmethod
+    def daily_10pm(func):
+        schedule.every().day.at("22:00").do(func)
+
+    @staticmethod
+    def daily_11pm(func):
+        schedule.every().day.at("23:00").do(func)
+
+    @staticmethod
     def weekly(func):
         schedule.every().monday.at("08:00").do(func)
 

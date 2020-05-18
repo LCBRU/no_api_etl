@@ -166,7 +166,7 @@ class OpenSpecimenDatabase(DatabaseDownloadAndRestore):
 
     def __init__(self):
         super().__init__(
-            schedule=Schedule.daily,
+            schedule=Schedule.daily_6pm,
             url='https://catissue-live.lcbru.le.ac.uk/publish/catissue.db',
             url_username=ETL_DOWNLOAD_USERNAME,
             url_password=ETL_DOWNLOAD_PASSWORD,
@@ -183,7 +183,7 @@ class UoLRedcapCrfDatabase(DatabaseDownloadAndRestore):
 
     def __init__(self):
         super().__init__(
-            schedule=Schedule.daily,
+            schedule=Schedule.daily_6pm,
             url='https://crf.lcbru.le.ac.uk/publish/redcap.db',
             url_username=ETL_DOWNLOAD_USERNAME,
             url_password=ETL_DOWNLOAD_PASSWORD,
@@ -200,7 +200,7 @@ class UoLRedcapSurveyDatabase(DatabaseDownloadAndRestore):
 
     def __init__(self):
         super().__init__(
-            schedule=Schedule.daily,
+            schedule=Schedule.daily_6pm,
             url='https://redcap.lcbru.le.ac.uk/publish/redcap.db',
             url_username=ETL_DOWNLOAD_USERNAME,
             url_password=ETL_DOWNLOAD_PASSWORD,

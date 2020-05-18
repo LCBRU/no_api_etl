@@ -624,7 +624,7 @@ class CombinedDataLakeEtl(Etl):
     def __init__(
         self,
     ):
-        super().__init__(schedule=Schedule.daily)
+        super().__init__(schedule=Schedule.daily_8pm)
 
     def do_etl(self):
         with ThreadPoolExecutor(max_workers = 4) as executor:
