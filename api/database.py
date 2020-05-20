@@ -4,7 +4,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
-from api.environment import ETL_CENTRAL_CONNECTION_STRING, ETL_DATABASES_CONNECTION_STRING, DATABASE_ECHO
+from api.environment import (
+    ETL_CENTRAL_CONNECTION_STRING,
+    ETL_DATABASES_CONNECTION_STRING,
+    DATABASE_ECHO,
+    MS_SQL_UHL_DWH_HOST,
+    MS_SQL_UHL_DWH_USER,
+    MS_SQL_UHL_DWH_PASSWORD,
+)
 
 Base = declarative_base()
 
@@ -31,6 +38,14 @@ def etl_central_session():
 @contextmanager
 def etl_databases_engine():
     engine = create_engine(ETL_DATABASES_CONNECTION_STRING, echo=DATABASE_ECHO)
+    yield engine
+    engine.dispose()
+
+
+@contextmanager
+def uhl_dwh_databases_engine():
+    connectionstring = f'mssql+pymssql://{MS_SQL_UHL_DWH_USER}:{MS_SQL_UHL_DWH_PASSWORD}@{MS_SQL_UHL_DWH_HOST}/dwbriccs'
+    engine = create_engine(connectionstring, echo=DATABASE_ECHO)
     yield engine
     engine.dispose()
 

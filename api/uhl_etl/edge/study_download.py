@@ -24,7 +24,7 @@ class EdgeStudyDetailDownload(SeleniumEtl):
     SEARCH_URL = 'ProjectSearch2'
 
     def __init__(self):
-        super().__init__(schedule=Schedule.daily)
+        super().__init__(schedule=Schedule.daily_7pm)
 
     def do_selenium_etl(self, driver):
 
@@ -364,7 +364,7 @@ class EdgeAnnualReportDownload(SeleniumEtl):
     REPORTS = 'SharedReports'
 
     def __init__(self):
-        super().__init__(schedule=Schedule.daily)
+        super().__init__(schedule=Schedule.daily_7pm)
 
     def do_selenium_etl(self, driver):
         self._studies = self.get_studies(driver)

@@ -22,63 +22,7 @@ from api.uhl_etl.crf_manager import login
 class CrfmStudyDetailDownload(SeleniumEtl):
 
     def __init__(self):
-        super().__init__(schedule=Schedule.daily_at_4am)
-
-    # def do_selenium_etl(self, driver):
-
-    #     self._studies = []
-
-    #     STUDY_LIST_URL = 'Print/Print_List.aspx?dbid={}&areaID=44&type=Query&name=Default&vid=&iid='.format(CRFM_DB_ID)
-
-    #     login(driver)
-
-    #     driver.get(parse.urljoin(
-    #         CRFM_BASE_URL,
-    #         STUDY_LIST_URL,
-    #     ))
-
-    #     projects = driver.find_element(By.CSS_SELECTOR, 'div.printarea > div:nth-child(3)')
-
-    #     for p in projects.find_elements(By.TAG_NAME, 'table')[1:]:
-    #         full_title = p.find_element(By.CSS_SELECTOR, 'thead td').text
-    #         title, study_number = itertools.islice(
-    #             itertools.chain(
-    #                 reversed(full_title.split(':', 1)),
-    #                 itertools.repeat('', 2),
-    #             ),
-    #             2
-    #         )
-
-    #         self.log("Getting study details '{}'".format(title))
-
-    #         table_body = p.find_element(By.XPATH, 'tbody')
-    #         iras_number = get_td_keyvalue_contents(table_body, 'IRAS Number')
-    #         ethics_number = get_td_keyvalue_contents(table_body, 'Ethics Number')
-    #         clinical_trial_gov = get_td_keyvalue_contents(table_body, 'Clinical Trials Gov')
-    #         eudract = get_td_keyvalue_contents(table_body, 'Eudract')
-    #         isrctn = get_td_keyvalue_contents(table_body, 'ISRCTN')
-    #         nihr_crn_number = get_td_keyvalue_contents(table_body, 'NIHR CRN Number')
-    #         protocol_number = get_td_keyvalue_contents(table_body, 'Protocol Number')
-    #         rd_number = get_td_keyvalue_contents(table_body, 'R & D Number')
-    #         who = get_td_keyvalue_contents(table_body, 'WHO')
-
-    #         study_details = table_body.find_elements(By.XPATH, 'tr[contains(td/text(), "Study Details")]/following-sibling::tr')[1]
-    #         status = get_td_column_contents(study_details, 7).replace('<br>', '')
-
-    #         self._studies.append(CrfmStudy(
-    #             study_number=study_number,
-    #             title=title,
-    #             protocol_number=protocol_number,
-    #             ethics_number=ethics_number,
-    #             clinical_trial_gov=clinical_trial_gov,
-    #             isrctn=isrctn,
-    #             iras_number=iras_number,
-    #             nihr_crn_number=nihr_crn_number,
-    #             rd_number=rd_number,
-    #             who=who,
-    #             eudract=eudract,
-    #             status=status,
-    #         ))
+        super().__init__(schedule=Schedule.daily_7pm)
 
     def do_selenium_etl(self, driver):
 
