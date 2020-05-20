@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     create_engine,
     MetaData,
+    DECIMAL,
 )
 from sqlalchemy.orm import relationship, sessionmaker
 from contextlib import contextmanager
@@ -121,6 +122,41 @@ class Procedure(Base):
     procedure_number = Column(Integer)
     procedure_code = Column(String)
     procedure_name = Column(String)
+
+
+class Transfer(Base):
+    __tablename__ = 'transfer'
+
+    id = Column(Integer, primary_key=True)
+    spell_id = Column(String)
+    transfer_id = Column(String)
+    uhl_system_number = Column(String)
+    transfer_datetime = Column(DateTime)
+    from_bed = Column(String)
+    from_ward_code = Column(String)
+    from_ward_name = Column(String)
+    from_hospital = Column(String)
+    to_bed = Column(String)
+    to_ward_code = Column(String)
+    to_ward_name = Column(String)
+    to_hospital = Column(String)
+
+
+class BloodTest(Base):
+    __tablename__ = 'blood_test'
+
+    id = Column(Integer, primary_key=True)
+    test_id = Column(Integer)
+    uhl_system_number = Column(String)
+    test_code = Column(String)
+    test_name = Column(String)
+    result = Column(String)
+    result_expansion = Column(String)
+    result_units = Column(String)
+    sample_collected_datetime = Column(DateTime)
+    result_datetime = Column(DateTime)
+    lower_range = Column(DECIMAL)
+    higher_range = Column(DECIMAL)
 
 
 @contextmanager
