@@ -159,6 +159,24 @@ class BloodTest(Base):
     higher_range = Column(DECIMAL)
 
 
+class MicrobiologyTest(Base):
+    __tablename__ = 'microbiology_test'
+
+    id = Column(Integer, primary_key=True)
+    test_id = Column(Integer)
+    uhl_system_number = Column(String)
+    order_code = Column(String)
+    order_name = Column(String)
+    test_code = Column(String)
+    test_name = Column(String)
+    organism = Column(String)
+    result = Column(String)
+    sample_collected_datetime = Column(DateTime)
+    sample_received_datetime = Column(DateTime)
+    result_datetime = Column(DateTime)
+    specimen_site = Column(String)
+
+
 @contextmanager
 def hic_covid_session():
     try:

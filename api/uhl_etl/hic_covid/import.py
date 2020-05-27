@@ -615,3 +615,73 @@ class CovidBloodsEtl(Etl):
 
 			session.add_all(inserts)
 			session.commit()
+
+
+COVID_MICROBIOLOGY_SQL = '''
+SELECT
+	t.id AS test_id,
+	p.Hospital_Number AS uhl_system_number,
+	o.Lab_Ref_No AS laboratory_code,
+	t.Order_code order_code,
+	t.Order_Code_Expan order_name,
+	t.Test_code test_code,
+	tc.Test_Expansion test_name,
+	org.Organism organism,
+	COALESCE(LTRIM(RTRIM(REPLACE(q.Quantity_Description, '*', ''))), t.Result_Expansion) AS test_result,
+	r.WHO_COLLECTION_DATE_TIME sample_collected_date_time,
+	r.WHO_RECEIVE_DATE_TIME sample_received_date_time,
+	t.WHO_TEST_RESULTED_DATE_TIME sample_available_date_time,
+	r.specimen_site
+FROM DWPATH.dbo.MICRO_TESTS t
+INNER JOIN	DWPATH.dbo.MICRO_RESULTS_FILE AS r
+	ON t.Micro_Results_File = r.ISRN
+INNER JOIN	DWPATH.dbo.ORDERS_FILE AS o
+	ON r.Order_No = o.Order_Number
+INNER JOIN	DWPATH.dbo.REQUEST_PATIENT_DETAILS AS p
+	ON o.D_Level_Pointer = p.Request_Patient_Details
+LEFT JOIN DWPATH.dbo.MICRO_ORGANISMS org
+	ON org.Micro_Tests = t.Micro_Tests
+LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_MICRO_WHO tc
+	ON t.Test_Code_Key=tc.Test_Codes_Row_ID
+LEFT OUTER JOIN DWPATH.dbo.MF_QUANTITY_CODES q
+	ON org.Quantifier=q.APEX_ID
+LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
+	ON o.C_Level_Pointer = s.Request_Source_Details
+WHERE
+	r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+;
+'''
+
+
+class CovidMicrobiologyEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+
+		with hic_covid_session() as session:
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_MICROBIOLOGY_SQL)
+				for row in rs:
+					if session.query(Virology).filter_by(test_id=row['test_id']).count() == 0:
+						v = Virology(
+							uhl_system_number=row['uhl_system_number'],
+							test_id=row['test_id'],
+							laboratory_code=row['laboratory_code'],
+							order_code=row['order_code'],
+							order_name=row['order_name'],
+							test_code=row['test_code'],
+							test_name=row['test_name'],
+							organism=row['organism'],
+							test_result=row['test_result'],
+							sample_collected_date_time=['sample_collected_date_time'],
+							sample_received_date_time=row['sample_received_date_time'],
+							sample_available_date_time=row['sample_available_date_time'],
+							order_status=row['order_status'],
+						)
+
+						inserts.append(v)
+
+			session.add_all(inserts)
+			session.commit()
