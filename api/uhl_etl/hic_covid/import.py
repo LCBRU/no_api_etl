@@ -19,6 +19,7 @@ from api.uhl_etl.hic_covid.model import (
 	Procedure,
 	Transfer,
 	BloodTest,
+	MicrobiologyTest,
 )
 
 
@@ -630,7 +631,7 @@ SELECT
 	COALESCE(LTRIM(RTRIM(REPLACE(q.Quantity_Description, '*', ''))), t.Result_Expansion) AS test_result,
 	r.WHO_COLLECTION_DATE_TIME sample_collected_date_time,
 	r.WHO_RECEIVE_DATE_TIME sample_received_date_time,
-	t.WHO_TEST_RESULTED_DATE_TIME sample_available_date_time,
+	t.WHO_TEST_RESULTED_DATE_TIME result_datetime,
 	r.specimen_site
 FROM DWPATH.dbo.MICRO_TESTS t
 INNER JOIN	DWPATH.dbo.MICRO_RESULTS_FILE AS r
@@ -649,6 +650,10 @@ LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
 WHERE
 	r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+	AND p.Hospital_Number IN (
+		SELECT asc2.UHL_System_Number
+		FROM DWBRICCS.dbo.all_suspected_covid asc2
+	)
 ;
 '''
 
@@ -659,29 +664,35 @@ class CovidMicrobiologyEtl(Etl):
 
 	def do_etl(self):
 		inserts = []
+		cnt = 0
 
 		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
 				rs = conn.execute(COVID_MICROBIOLOGY_SQL)
 				for row in rs:
-					if session.query(Virology).filter_by(test_id=row['test_id']).count() == 0:
-						v = Virology(
+					if session.query(MicrobiologyTest).filter_by(test_id=row['test_id']).count() == 0:
+						v = MicrobiologyTest(
 							uhl_system_number=row['uhl_system_number'],
 							test_id=row['test_id'],
-							laboratory_code=row['laboratory_code'],
 							order_code=row['order_code'],
 							order_name=row['order_name'],
 							test_code=row['test_code'],
 							test_name=row['test_name'],
 							organism=row['organism'],
-							test_result=row['test_result'],
-							sample_collected_date_time=['sample_collected_date_time'],
-							sample_received_date_time=row['sample_received_date_time'],
-							sample_available_date_time=row['sample_available_date_time'],
-							order_status=row['order_status'],
+							result=row['test_result'],
+							sample_collected_datetime=['sample_collected_date_time'],
+							sample_received_datetime=row['sample_received_date_time'],
+							result_datetime=row['result_datetime'],
+							specimen_site=row['specimen_site'],
 						)
 
 						inserts.append(v)
+						cnt += 1
+
+						if cnt % 1000 == 0:
+							logging.info(f"Saving Test batch.  total = {cnt}")
+							session.add_all(inserts)
+							inserts = []
 
 			session.add_all(inserts)
 			session.commit()
