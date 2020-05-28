@@ -332,8 +332,8 @@ SELECT DISTINCT
 	d.id AS diagnosis_id,
 	p.SYSTEM_NUMBER AS uhl_system_number,
 	d.DIAGNOSIS_NUMBER AS diagnosis_number,
-	mf_d.DIAGNOSIS_DESCRIPTION AS diagnosis_code,
-	d.DIAGNOSIS_CODE AS diagnosis_name
+	mf_d.DIAGNOSIS_DESCRIPTION AS diagnosis_name,
+	d.DIAGNOSIS_CODE AS diagnosis_code
 FROM DWREPO.dbo.PATIENT p
 JOIN DWREPO.dbo.ADMISSIONS a
 	ON a.PATIENT_ID = p.ID
