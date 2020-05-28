@@ -1,5 +1,6 @@
 """Database context manager
 """
+import pyodbc
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
@@ -11,6 +12,10 @@ from api.environment import (
     MS_SQL_UHL_DWH_HOST,
     MS_SQL_UHL_DWH_USER,
     MS_SQL_UHL_DWH_PASSWORD,
+    MS_SQL_DWH_HOST,
+    MS_SQL_DWH_USER,
+    MS_SQL_DWH_PASSWORD,
+    MS_SQL_ODBC_DRIVER,
 )
 
 Base = declarative_base()
@@ -43,8 +48,26 @@ def etl_databases_engine():
 
 
 @contextmanager
+def brc_dwh_cursor(database=None):
+    if not database:
+        database = 'master'
+
+    conn = pyodbc.connect(
+        f'DRIVER={MS_SQL_ODBC_DRIVER};SERVER={MS_SQL_DWH_HOST};DATABASE={database};UID={MS_SQL_DWH_USER};PWD={MS_SQL_DWH_PASSWORD}',
+        autocommit=True
+    )
+
+    csr = conn.cursor()
+
+    yield csr
+
+    csr.close()
+    conn.close()
+
+
+@contextmanager
 def uhl_dwh_databases_engine():
-    connectionstring = f'mssql+pymssql://{MS_SQL_UHL_DWH_USER}:{MS_SQL_UHL_DWH_PASSWORD}@{MS_SQL_UHL_DWH_HOST}/dwbriccs'
+    connectionstring = f'mssql+pyodbc://{MS_SQL_UHL_DWH_USER}:{MS_SQL_UHL_DWH_PASSWORD}@{MS_SQL_UHL_DWH_HOST}/dwbriccs?driver={MS_SQL_ODBC_DRIVER.replace(" ", "+")}'
     engine = create_engine(connectionstring, echo=DATABASE_ECHO)
     yield engine
     engine.dispose()

@@ -1,4 +1,3 @@
-import _mssql
 import logging
 import requests
 from datetime import timedelta  

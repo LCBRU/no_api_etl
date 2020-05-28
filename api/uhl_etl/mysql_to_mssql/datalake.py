@@ -2,7 +2,7 @@
 
 import re
 import subprocess
-import _mssql
+import pyodbc
 import os
 import logging
 import time
@@ -19,8 +19,7 @@ from api.environment import (
 )
 from concurrent.futures import ThreadPoolExecutor
 import itertools
-import pandas as pd
-from api.database import connection, etl_central_session
+from api.database import connection, etl_central_session, brc_dwh_cursor
 
 SQL_DROP_DB = '''
 IF EXISTS (SELECT name FROM sys.databases WHERE name = N'{0}')
@@ -74,19 +73,6 @@ class MysqlToMssqlStep(EtlStep):
         self.source_database_name = database_name
         self.destination_database_name = 'datalake_{}'.format(database_name)
 
-        self.source_connection_string = 'mysql://{username}:{password}@{host}/{database}'.format(
-            username=self.source_database_user,
-            password=self.source_database_password,
-            host=self.source_database_host,
-            database=self.source_database_name,
-        )
-        self.destination_connection_string = 'mssql+pymssql://{username}:{password}@{host}/{database}'.format(
-            username=self.destination_database_user,
-            password=self.destination_database_password,
-            host=self.destination_database_host,
-            database=self.destination_database_name,
-        )
-
         self.keys_to_ignore = keys_to_ignore or []
         self.tables_to_ignore = tables_to_ignore or []
         self.constraints_to_ignore = constraints_to_ignore or []
@@ -110,67 +96,42 @@ class MysqlToMssqlStep(EtlStep):
     def re_create_database(self, creates_file):
         self.log("Creating destination database '{}'".format(self.destination_database_name))
 
-        conn = _mssql.connect(
-            server=self.destination_database_host,
-            user=self.destination_database_user,
-            password=self.destination_database_password,
-        )
+        with brc_dwh_cursor() as conn:
+            conn.execute(SQL_DROP_DB.format(self.destination_database_name))
+            conn.execute(SQL_CREATE_DB.format(self.destination_database_name))
+            conn.execute(SQL_SIMPLE_RECOVERY.format(self.destination_database_name))
 
-        try:
-            conn.execute_non_query(SQL_DROP_DB.format(self.destination_database_name))
-            conn.execute_non_query(SQL_CREATE_DB.format(self.destination_database_name))
-            conn.execute_non_query(SQL_SIMPLE_RECOVERY.format(self.destination_database_name))
+        with brc_dwh_cursor(database=self.destination_database_name) as conn:
+            try:
+                creates_file.seek(0)
+                ddl = creates_file.read()
 
-        finally:
-            conn.close()
+                self.log(
+                    message='Recreating database',
+                    attachment=ddl,
+                    log_level='INFO',
+                )
 
-        conn = _mssql.connect(
-            server=self.destination_database_host,
-            user=self.destination_database_user,
-            password=self.destination_database_password,
-            database=self.destination_database_name,
-        )
+                conn.execute(ddl)
 
-        try:
-            creates_file.seek(0)
-            ddl = creates_file.read()
-
-            self.log(
-                message='Recreating database',
-                attachment=ddl,
-                log_level='INFO',
-            )
-
-            conn.execute_non_query(ddl)
-
-        except:
-            self.log(
-                message='Error running creating database',
-                attachment=ddl,
-                log_level='ERROR',
-            )
-            raise
-
-        finally:
-            conn.close()
+            except:
+                self.log(
+                    message='Error running creating database',
+                    attachment=ddl,
+                    log_level='ERROR',
+                )
+                raise
 
         self.log("Creating destination database '{}' COMPLETED".format(self.destination_database_name))
 
     def create_constraints(self, indexes_file, foreign_keys_file):
         self.log("Creating constraints for '{}'".format(self.destination_database_name))
 
-        conn = _mssql.connect(
-            server=self.destination_database_host,
-            user=self.destination_database_user,
-            password=self.destination_database_password,
-            database=self.destination_database_name,
-        )
-
-        try:
+        with brc_dwh_cursor(database=self.destination_database_name) as conn:
             try:
                 indexes_file.seek(0)
                 ddl = indexes_file.read()
-                conn.execute_non_query(ddl)
+                conn.execute(ddl)
             except:
                 self.log(
                     message='Error running creating indexes',
@@ -181,7 +142,7 @@ class MysqlToMssqlStep(EtlStep):
             try:
                 foreign_keys_file.seek(0)
                 ddl = foreign_keys_file.read()
-                conn.execute_non_query(ddl)
+                conn.execute(ddl)
             except:
                 self.log(
                     message='Error running creating foreign keys',
@@ -190,23 +151,7 @@ class MysqlToMssqlStep(EtlStep):
                 )
                 raise
 
-        finally:
-            conn.close()
-
         self.log("Creating constraints for '{}' COMPLETED".format(self.destination_database_name))
-
-    def transfer_data_using_pandas(self, tables):
-
-        with connection(self.source_connection_string) as incon, connection(self.destination_connection_string) as outcon:
-            for t in tables:
-                try:
-                    self.log("Extracting '{}'".format(t))
-                    for i, df in enumerate(pd.read_sql_table(t, con=incon, chunksize=1000), start=1):
-                        self.log("Loading '{}' chunk {}".format(t, i))
-                        df.to_sql(t, outcon, if_exists='append', index=False)
-                    self.log("Loaded '{}'".format(t))
-                except Exception as e:
-                    raise Exception('Failed transferring data for table \'{}\''.format(t)) from e
 
     def transfer_data_using_inserts(self):
         self.log("Dumping Data for '{}'".format(self.source_database_name))
@@ -244,64 +189,57 @@ class MysqlToMssqlStep(EtlStep):
         inserts_file.flush()
         inserts_file.seek(0)
 
-        conn = _mssql.connect(
-            server=self.destination_database_host,
-            user=self.destination_database_user,
-            password=self.destination_database_password,
-            database=self.destination_database_name,
-        )
+        with brc_dwh_cursor(database=self.destination_database_name) as conn:
+            try:
 
-        try:
+                BATCH_SIZE = 500
+                total_records = 0
 
-            BATCH_SIZE = 197
-            total_records = 0
+                for i, chunk in enumerate(grouper_it(BATCH_SIZE, inserts_file), 1):
+                    try:
+                        inserts = ''.join(chunk)
 
-            for i, chunk in enumerate(grouper_it(BATCH_SIZE, inserts_file), 1):
-                try:
-                    inserts = ''.join(chunk)
+                        # Remove multiline comments
+                        inserts = re.sub(re.compile(r'/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', inserts)
+                        # Remove single line comments
+                        inserts = re.sub(re.compile(r'^--.*$', re.MULTILINE), '', inserts)
+                        # Remove DELIMITERS
+                        inserts = re.sub(re.compile(r'^DELIMITER.*$', re.MULTILINE), '', inserts)
 
-                    # Remove multiline comments
-                    inserts = re.sub(re.compile(r'/\*(.|[\r\n])*?\*/[;]?', re.MULTILINE), '', inserts)
-                    # Remove single line comments
-                    inserts = re.sub(re.compile(r'^--.*$', re.MULTILINE), '', inserts)
-                    # Remove DELIMITERS
-                    inserts = re.sub(re.compile(r'^DELIMITER.*$', re.MULTILINE), '', inserts)
+                        # Placing all inserts in one transaction,
+                        # as opposed to an implicit transaction for
+                        # each insert, speeds things up
+                        inserts = (
+                            'BEGIN TRANSACTION\n' +
+                            'SET NOCOUNT ON\n' +
+                            inserts +
+                            '\nCOMMIT'
+                        )
 
-                    # Placing all inserts in one transaction,
-                    # as opposed to an implicit transaction for
-                    # each insert, speeds things up
-                    inserts = (
-                        'BEGIN TRANSACTION\n' +
-                        'SET NOCOUNT ON\n' +
-                        inserts +
-                        '\nCOMMIT'
-                    )
+                        # Escape stuff
+                        inserts = inserts.replace('\\\\', '{escaped_backslash}')
+                        inserts = inserts.replace('\\\'', '\'\'')
+                        inserts = inserts.replace('\\%', '%')
+                        inserts = inserts.replace('\\_', '_')
+                        inserts = inserts.replace('{escaped_backslash}', '\\\\')
 
-                    # Escape stuff
-                    inserts = inserts.replace('\\\\', '{escaped_backslash}')
-                    inserts = inserts.replace('\\\'', '\'\'')
-                    inserts = inserts.replace('\\%', '%')
-                    inserts = inserts.replace('\\_', '_')
-                    inserts = inserts.replace('{escaped_backslash}', '\\\\')
+                        # MYSQL uses '0000-00-00' for NULL dates
+                        inserts = inserts.replace('\'0000-00-00\'', 'NULL')
 
-                    # MYSQL uses '0000-00-00' for NULL dates
-                    inserts = inserts.replace('\'0000-00-00\'', 'NULL')
+                        conn.execute(inserts)
 
-                    conn.execute_non_query(inserts)
-
-                    if i % 100 == 0:
-                        self.log("Approximately {:,} records loaded (batch {})".format(BATCH_SIZE * i, i))
-                except:
-                    self.log(
-                        message='Error loading data',
-                        attachment=inserts,
-                        log_level='ERROR',
-                    )
-                    raise
-        finally:
-            conn.close()
-            inserts_file.close()
-
+                        if i % 100 == 0:
+                            self.log("Approximately {:,} records loaded (batch {})".format(BATCH_SIZE * i, i))
+                    except:
+                        self.log(
+                            message='Error loading data',
+                            attachment=inserts,
+                            log_level='ERROR',
+                        )
+                        raise
+            finally:
+                inserts_file.close()
+            
         self.log("Dumping Data for '{}' COMPLETED".format(self.source_database_name))
 
     def dump_ddl(self, creates_file, indexes_file, foreign_keys_file):
@@ -485,6 +423,7 @@ class DataLake_CivicrmStep(DataLakeStep):
             keys_to_ignore=[
                 'index_image_URL_128',
                 'UI_external_identifier',
+                'UI_domain_find',
             ]
         )
 
@@ -630,16 +569,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                DataLake_RedCapBriccsStep,
-                DataLake_OpenSpecimenStep,
-                DataLake_BriccsStep,
-                DataLake_BriccsNorthamtonStep,
+                # DataLake_RedCapBriccsStep,
+                # DataLake_OpenSpecimenStep,
+                # DataLake_BriccsStep,
+                # DataLake_BriccsNorthamtonStep,
                 DataLake_CivicrmStep,
-                DataLake_IdentityStep,
-                DataLake_GenvascGpPortalStep,
-                DataLake_RedCapBriccsExtStep,
-                DataLake_RedCapBriccsUoLCrfStep,
-                DataLake_RedCapBriccsUoLSurveyStep,
+                # DataLake_IdentityStep,
+                # DataLake_GenvascGpPortalStep,
+                # DataLake_RedCapBriccsExtStep,
+                # DataLake_RedCapBriccsUoLCrfStep,
+                # DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
