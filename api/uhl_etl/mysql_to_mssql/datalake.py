@@ -569,16 +569,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                # DataLake_RedCapBriccsStep,
-                # DataLake_OpenSpecimenStep,
-                # DataLake_BriccsStep,
-                # DataLake_BriccsNorthamtonStep,
+                DataLake_RedCapBriccsStep,
+                DataLake_OpenSpecimenStep,
+                DataLake_BriccsStep,
+                DataLake_BriccsNorthamtonStep,
                 DataLake_CivicrmStep,
-                # DataLake_IdentityStep,
-                # DataLake_GenvascGpPortalStep,
-                # DataLake_RedCapBriccsExtStep,
-                # DataLake_RedCapBriccsUoLCrfStep,
-                # DataLake_RedCapBriccsUoLSurveyStep,
+                DataLake_IdentityStep,
+                DataLake_GenvascGpPortalStep,
+                DataLake_RedCapBriccsExtStep,
+                DataLake_RedCapBriccsUoLCrfStep,
+                DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)

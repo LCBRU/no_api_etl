@@ -19,6 +19,10 @@ from api.uhl_etl.hic_covid.model import (
 	Transfer,
 	BloodTest,
 	MicrobiologyTest,
+	Prescribing,
+	Administration,
+	Observation,
+	CriticalCarePeriod,
 )
 
 
@@ -690,6 +694,280 @@ class CovidMicrobiologyEtl(Etl):
 
 						if cnt % 1000 == 0:
 							logging.info(f"Saving Test batch.  total = {cnt}")
+							session.add_all(inserts)
+							inserts = []
+
+			session.add_all(inserts)
+			session.commit()
+
+
+COVID_PRESCRIBING_SQL = '''
+SELECT
+	p.externalId AS uhl_system_number,
+	d.id AS order_id,
+	m.prescribeMethodName AS method_name,
+	m.orderType AS order_type,
+	m.medicationName AS medication_name,
+	d.minDose AS min_dose,
+	d.maxDose AS max_dose,
+	freq.frequency_narrative AS frequency,
+	form.Name AS form,
+	d.doseUnit AS dose_units,
+	route.name AS route,
+	m.createdOn AS ordered_datetime
+FROM DWEPMA.dbo.tciMedication m
+JOIN DWEPMA.dbo.tciMedicationDose d
+	ON d.medicationid = m.id
+JOIN DWEPMA.dbo.tciPerson p
+	ON p.id = m.personId
+LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_FORM_CODES_WHO form
+	ON form.CODE = d.formCode
+LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_FREQUENCY_WHO freq
+	ON freq.CODE = d.frequency
+LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO route
+	ON route.reference = d.roa
+WHERE m.WHO_MEDICATION_CREATED_DATE > '01 Jan 2020'
+	AND p.externalId IN (
+		SELECT asc2.UHL_System_Number
+		FROM DWBRICCS.dbo.all_suspected_covid asc2
+	)
+;
+'''
+
+
+class CovidPrescribingEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+		cnt = 0
+
+		with hic_covid_session() as session:
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_PRESCRIBING_SQL)
+				for row in rs:
+					if session.query(Prescribing).filter_by(order_id=row['order_id']).count() == 0:
+						v = Prescribing(
+							uhl_system_number=row['uhl_system_number'],
+							order_id=row['order_id'],
+							method_name=row['method_name'],
+							order_type=row['order_type'],
+							medication_name=row['medication_name'],
+							min_dose=row['min_dose'],
+							max_does=row['max_dose'],
+							frequency=row['frequency'],
+							form=['form'],
+							does_units=row['dose_units'],
+							route=row['route'],
+							ordered_datetime=row['ordered_datetime'],
+						)
+
+						inserts.append(v)
+						cnt += 1
+
+						if cnt % 1000 == 0:
+							logging.info(f"Saving medication.  total = {cnt}")
+							session.add_all(inserts)
+							inserts = []
+
+			session.add_all(inserts)
+			session.commit()
+
+
+COVID_ADMINISTRATION_SQL = '''
+SELECT
+	a.id AS administration_id,
+	p.externalId AS uhl_system_number,
+	a.eventDateTime AS administration_datetime,
+	m.medicationName AS medication_name,
+	a.doseId AS dose_id,
+	a.dose,
+	a.doseUnit AS dose_unit,
+	form.Name AS form_name,
+	roa.name AS route_name
+FROM DWEPMA.dbo.tciAdminEvent a
+JOIN DWEPMA.dbo.tciMedication m
+	ON m.id = a.medicationid
+JOIN DWEPMA.dbo.tciPerson p
+	ON p.id = m.personId
+LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_FORM_CODES_WHO form
+	ON form.CODE = a.formCode
+LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO roa
+	ON roa.reference = a.roa
+WHERE p.externalId IN (
+		SELECT asc2.UHL_System_Number
+		FROM DWBRICCS.dbo.all_suspected_covid asc2
+	)
+;
+'''
+
+
+class CovidAdministrationEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+		cnt = 0
+
+		with hic_covid_session() as session:
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_ADMINISTRATION_SQL)
+				for row in rs:
+					if session.query(Administration).filter_by(administration_id=row['administration_id']).count() == 0:
+						v = Administration(
+							uhl_system_number=row['uhl_system_number'],
+							administration_id=row['administration_id'],
+							administration_datetime=row['administration_datetime'],
+							medication_name=row['medication_name'],
+							dose_id=row['dose_id'],
+							dose=row['dose'],
+							dose_unit=row['dose_unit'],
+							form_name=row['form_name'],
+							route_name=['route_name'],
+						)
+
+						inserts.append(v)
+						cnt += 1
+
+						if cnt % 1000 == 0:
+							logging.info(f"Saving administration.  total = {cnt}")
+							session.add_all(inserts)
+							inserts = []
+
+			session.add_all(inserts)
+			session.commit()
+
+
+COVID_OBSERVATION_SQL = '''
+SELECT *
+FROM DWNERVECENTRE.dbo.ObsExport oe
+WHERE [System Number > Patient ID] IN (
+	SELECT asc2.UHL_System_Number
+	FROM DWBRICCS.dbo.all_suspected_covid asc2
+)
+;
+'''
+
+
+class CovidObservationEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+		cnt = 0
+
+		with hic_covid_session() as session:
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_OBSERVATION_SQL)
+
+				observations = [c[:-4] for c in rs.keys() if c.lower().endswith('_ews') and c[:-4] in rs.keys()]
+				ews_names = {c[:-4]: c for c in rs.keys() if c.lower().endswith('_ews')}
+				units_names = {c[:-6]: c for c in rs.keys() if c.lower().endswith('_units')}
+
+				for row in rs:
+
+					for o in observations:
+
+						if session.query(Observation).filter_by(observation_id=row['ObsId'], observation_name=o).count() == 0:
+							v = Observation(
+								uhl_system_number=row['System Number > Patient ID'],
+								observation_id=row['ObsId'],
+								observation_datetime=row['Timestamp'],
+								observation_name=o,
+								observation_value=row[o],
+								observation_ews=row[ews_names[o]],
+								observation_units=row[units_names[o]],
+							)
+
+							inserts.append(v)
+							cnt += 1
+
+							if cnt % 1000 == 0:
+								logging.info(f"Saving observation.  total = {cnt}")
+								session.add_all(inserts)
+								inserts = []
+
+			session.add_all(inserts)
+			session.commit()
+
+
+COVID_CLINICAL_CARE_PERIOD_SQL = '''
+SELECT
+	ccp.ID AS ccp_id,
+	p.SYSTEM_NUMBER AS uhl_system_number,
+	ccp.CCP_LOCAL_IDENTIFIER,
+	spec.DHSS_CODE AS treatment_function_code,
+	spec.NC_SPECIALTY_NAME AS treatment_function_name,
+	ccp.CCP_START_DATE_TIME,
+	loc.LOCATION,
+	BASIC_RESP_LEVEL_DAYS AS BASIC_RESPIRATORY_SUPPORT_DAYS,
+	ADVANCED_RESP_LEVEL_DAYS AS ADVANCED_RESPIRATORY_SUPPORT_DAYS,
+	BASIC_CARDIO_LEVEL_DAYS AS BASIC_CARDIOVASCULAR_SUPPORT_DAYS,
+	ADVANCED_CARDIO_LEVEL_DAYS AS ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS,
+	RENAL_SUPPORT_DAYS AS RENAL_SUPPORT_DAYS,
+	NEURO_SUPPORT_DAYS AS NEUROLOGICAL_SUPPORT_DAYS,
+	DERM_SUPPORT_DAYS AS DERMATOLOGICAL_SUPPORT_DAYS,
+	LIVER_SUPPORT_DAYS AS LIVER_SUPPORT_DAYS,
+	CRITICAL_CARE_LEVEL2_DAYS AS CRITICAL_CARE_LEVEL_2_DAYS,
+	CRITICAL_CARE_LEVEL3_DAYS AS CRITICAL_CARE_LEVEL_3_DAYS,
+	ccp.CCP_END_DATE_TIME
+FROM DWREPO_BASE.dbo.WHO_INQUIRE_CRITICAL_CARE_PERIODS ccp
+JOIN DWREPO.dbo.PATIENT p
+	ON p.ID = ccp.PATIENT_ID
+JOIN DWREPO.dbo.MF_SPECIALTY spec
+	ON spec.CODE = ccp.CCP_TREATMENT_FUNCTION_CODE
+JOIN DWREPO.dbo.MF_LOCATION_WHO loc
+	ON loc.code = ccp.CCP_LOCATION_CODE
+WHERE ccp.CCP_START_DATE >= '01 Jan 2020'
+	AND p.SYSTEM_NUMBER IN (
+		SELECT SYSTEM_NUMBER
+		FROM DWBRICCS.dbo.all_suspected_covid
+	)
+;
+'''
+
+
+class CovidClincalCarePeriodEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+		cnt = 0
+
+		with hic_covid_session() as session:
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_CLINICAL_CARE_PERIOD_SQL)
+				for row in rs:
+					if session.query(CriticalCarePeriod).filter_by(ccp_id=row['ccp_id']).count() == 0:
+						v = CriticalCarePeriod(
+							uhl_system_number=row['uhl_system_number'],
+							ccp_id=row['ccp_id'],
+							local_identifier=row['CCP_LOCAL_IDENTIFIER'],
+							treatment_function_code=row['treatment_function_code'],
+							treatment_function_name=row['treatment_function_name'],
+							start_datetime=row['CCP_START_DATE_TIME'],
+							basic_respiratory_support_days=row['BASIC_RESPIRATORY_SUPPORT_DAYS'],
+							advanced_respiratory_support_days=row['ADVANCED_RESPIRATORY_SUPPORT_DAYS'],
+							basic_cardiovascular_support_days=['BASIC_CARDIOVASCULAR_SUPPORT_DAYS'],
+							advanced_cardiovascular_support_days=['ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS'],
+							renal_support_days=['RENAL_SUPPORT_DAYS'],
+							neurological_support_days=['NEUROLOGICAL_SUPPORT_DAYS'],
+							dermatological_support_days=['DERMATOLOGICAL_SUPPORT_DAYS'],
+							liver_support_days=['LIVER_SUPPORT_DAYS'],
+							critical_care_level_2_days=['CRITICAL_CARE_LEVEL_2_DAYS'],
+							critical_care_level_3_days=['CRITICAL_CARE_LEVEL_3_DAYS'],
+							discharge_datetime=['CCP_END_DATE_TIME'],
+						)
+
+						inserts.append(v)
+						cnt += 1
+
+						if cnt % 1000 == 0:
+							logging.info(f"Saving administration.  total = {cnt}")
 							session.add_all(inserts)
 							inserts = []
 

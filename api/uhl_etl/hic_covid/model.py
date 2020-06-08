@@ -177,6 +177,76 @@ class MicrobiologyTest(Base):
     specimen_site = Column(String)
 
 
+class Prescribing(Base):
+    __tablename__ = 'prescribing'
+
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer)
+    uhl_system_number = Column(String)
+    method_name = Column(String)
+    order_type = Column(Integer)
+    medication_name = Column(String)
+    min_dose = Column(String)
+    max_does = Column(String)
+    frequency = Column(String)
+    form = Column(String)
+    does_units = Column(String)
+    route = Column(String)
+    ordered_datetime = Column(DateTime)
+
+
+class Administration(Base):
+    __tablename__ = 'administration'
+
+    id = Column(Integer, primary_key=True)
+    administration_id = Column(Integer)
+    uhl_system_number = Column(String)
+    administration_datetime = Column(DateTime)
+    medication_name = Column(String)
+    dose_id = Column(String)
+    dose = Column(String)
+    dose_unit = Column(String)
+    form_name = Column(String)
+    route_name = Column(String)
+
+
+class Observation(Base):
+    __tablename__ = 'observation'
+
+    id = Column(Integer, primary_key=True)
+    observation_id = Column(Integer)
+    uhl_system_number = Column(String)
+    observation_datetime = Column(DateTime)
+    observation_name = Column(String)
+    observation_value = Column(String)
+    observation_ews = Column(String)
+    observation_units = Column(String)
+
+
+class CriticalCarePeriod(Base):
+    __tablename__ = 'critical_care_period'
+
+    id = Column(Integer, primary_key=True)
+    ccp_id = Column(Integer)
+    uhl_system_number = Column(String)
+    local_identifier = Column(String)
+    treatment_function_code = Column(String)
+    treatment_function_name = Column(String)
+    start_datetime = Column(DateTime)
+    location = Column(String)
+    basic_respiratory_support_days = Column(String)
+    advanced_respiratory_support_days = Column(String)
+    basic_cardiovascular_support_days = Column(String)
+    advanced_cardiovascular_support_days = Column(String)
+    renal_support_days = Column(String)
+    neurological_support_days = Column(String)
+    dermatological_support_days = Column(String)
+    liver_support_days = Column(String)
+    critical_care_level_2_days = Column(String)
+    critical_care_level_3_days = Column(String)
+    discharge_datetime = Column(DateTime)
+
+
 @contextmanager
 def hic_covid_session():
     try:
