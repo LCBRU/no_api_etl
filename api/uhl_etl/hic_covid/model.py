@@ -102,6 +102,7 @@ class Diagnosis(Base):
     __tablename__ = 'diagnosis'
 
     id = Column(Integer, primary_key=True)
+    admission_datetime = Column(DateTime)
     spell_id = Column(String)
     episode_id = Column(String)
     diagnosis_id = Column(String)
@@ -115,6 +116,7 @@ class Procedure(Base):
     __tablename__ = 'procedure'
 
     id = Column(Integer, primary_key=True)
+    admission_datetime = Column(DateTime)
     spell_id = Column(String)
     episode_id = Column(String)
     procedure_id = Column(String)
@@ -155,6 +157,7 @@ class BloodTest(Base):
     result_units = Column(String)
     sample_collected_datetime = Column(DateTime)
     result_datetime = Column(DateTime)
+    receive_datetime = Column(DateTime)
     lower_range = Column(DECIMAL)
     higher_range = Column(DECIMAL)
 

@@ -2,6 +2,8 @@ import logging
 import requests
 from datetime import timedelta  
 from urllib.parse import urlparse, urlunparse, urlencode
+from sqlalchemy import func
+from sqlalchemy.sql import text
 from api.core import Etl, Schedule
 from api.database import uhl_dwh_databases_engine
 from api.environment import (
@@ -102,7 +104,7 @@ class CovidParticipantsEtl(Etl):
 			session.commit()
 
 
-COVID_VIROLOGY_SQL = '''
+COVID_VIROLOGY_SQL = text('''
 SELECT
 	t.id AS test_id,
 	p.Hospital_Number AS uhl_system_number,
@@ -140,8 +142,9 @@ WHERE
 	t.Test_code IN  ( 'VCOV', 'VCOV3', 'VCOV4', 'VCOV5' )
 	OR (t.Test_code = 'VBIR'AND org.Organism  LIKE  '%CoV%')
 ) 	AND r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+    AND r.WHO_RECEIVE_DATE_TIME >= :received_date
 ;
-'''
+''')
 
 
 class CovidVirologyEtl(Etl):
@@ -152,8 +155,11 @@ class CovidVirologyEtl(Etl):
 		inserts = []
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Virology.sample_received_date_time)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_VIROLOGY_SQL)
+				rs = conn.execute(COVID_VIROLOGY_SQL, received_date=max_date)
 				for row in rs:
 					if session.query(Virology).filter_by(test_id=row['test_id']).count() == 0:
 						v = Virology(
@@ -178,7 +184,7 @@ class CovidVirologyEtl(Etl):
 			session.commit()
 
 
-COVID_EMERGENCY_SQL = '''
+COVID_EMERGENCY_SQL = text('''
 SELECT
 	fpp.visitid,
 	fpp.PP_IDENTIFIER,
@@ -199,9 +205,9 @@ FROM DWNERVECENTRE.dbo.F_PAT_PRESENT fpp
 WHERE fpp.PP_IDENTIFIER in (
 	SELECT asc2.UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid asc2
-) AND fpp.ARRIVAL_DATE >= '01-Jan-2020'
+) AND fpp.ARRIVAL_DATE >= :arrival_date
 ;
-'''
+''')
 
 
 class CovidEmergencyEtl(Etl):
@@ -212,8 +218,12 @@ class CovidEmergencyEtl(Etl):
 		inserts = []
 
 		with hic_covid_session() as session:
+
+			max_date = session.query(func.max(Emergency.arrival_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_EMERGENCY_SQL)
+				rs = conn.execute(COVID_EMERGENCY_SQL, arrival_date=max_date)
 				for row in rs:
 					v = session.query(Emergency).filter_by(visitid=row['visitid']).one_or_none()
 					if v is None:
@@ -246,7 +256,7 @@ class CovidEmergencyEtl(Etl):
 		return date + timedelta(hours=int(time[0:2]), minutes=int(time[2:4]))
 
 
-COVID_EPISODE_SQL = '''
+COVID_EPISODE_SQL = text('''
 SELECT
 	ce.ID AS episode_id,
 	a.id AS spell_id,
@@ -285,10 +295,10 @@ JOIN DWREPO.dbo.MF_SPECIALTY spec
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT SYSTEM_NUMBER
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
+) AND a.ADMISSION_DATE_TIME > :admission_datetime
 ORDER BY p.SYSTEM_NUMBER, a.ID, ce.EPISODE_NUMBER
 ;
-'''
+''')
 
 
 class CovidEpisodeEtl(Etl):
@@ -299,8 +309,11 @@ class CovidEpisodeEtl(Etl):
 		inserts = []
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Episode.admission_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+			
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_EPISODE_SQL)
+				rs = conn.execute(COVID_EPISODE_SQL, admission_datetime=max_date)
 				for row in rs:
 					v = session.query(Episode).filter_by(episode_id=row['episode_id']).one_or_none()
 					if v is None:
@@ -328,7 +341,7 @@ class CovidEpisodeEtl(Etl):
 			session.commit()
 
 
-COVID_DIAGNOSIS_SQL = '''
+COVID_DIAGNOSIS_SQL = text('''
 SELECT DISTINCT
 	a.id AS spell_id,
 	ce.ID AS episode_id,
@@ -336,7 +349,8 @@ SELECT DISTINCT
 	p.SYSTEM_NUMBER AS uhl_system_number,
 	d.DIAGNOSIS_NUMBER AS diagnosis_number,
 	mf_d.DIAGNOSIS_DESCRIPTION AS diagnosis_name,
-	d.DIAGNOSIS_CODE AS diagnosis_code
+	d.DIAGNOSIS_CODE AS diagnosis_code,
+	a.ADMISSION_DATE_TIME AS admission_datetime
 FROM DWREPO.dbo.PATIENT p
 JOIN DWREPO.dbo.ADMISSIONS a
 	ON a.PATIENT_ID = p.ID
@@ -350,9 +364,9 @@ LEFT JOIN DWREPO.dbo.MF_DIAGNOSIS mf_d
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT SYSTEM_NUMBER
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
+) AND a.ADMISSION_DATE_TIME > :admission_datetime
 ;
-'''
+''')
 
 
 class CovidDiagnosisEtl(Etl):
@@ -364,8 +378,11 @@ class CovidDiagnosisEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Diagnosis.admission_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_DIAGNOSIS_SQL)
+				rs = conn.execute(COVID_DIAGNOSIS_SQL, admission_datetime=max_date)
 				for row in rs:
 					v = session.query(Diagnosis).filter_by(diagnosis_id=row['diagnosis_id']).one_or_none()
 					if v is None:
@@ -379,6 +396,7 @@ class CovidDiagnosisEtl(Etl):
 					v.diagnosis_number=row['diagnosis_number']
 					v.diagnosis_code=row['diagnosis_code']
 					v.diagnosis_name=row['diagnosis_name']
+					v.admission_datetime=row['admission_datetime']
 
 					inserts.append(v)
 					cnt += 1
@@ -392,7 +410,7 @@ class CovidDiagnosisEtl(Etl):
 			session.commit()
 
 
-COVID_PROCEDURE_SQL = '''
+COVID_PROCEDURE_SQL = text('''
 SELECT
 	proc_.ID AS procedure_id,
 	a.id AS spell_id,
@@ -400,7 +418,8 @@ SELECT
 	p.SYSTEM_NUMBER AS uhl_system_number,
 	proc_.PROCEDURE_NUMBER AS procedure_number,
 	proc_.PROCEDURE_CODE AS procedure_code,
-	opcs.PROCEDURE_DESCRIPTION AS procedure_name
+	opcs.PROCEDURE_DESCRIPTION AS procedure_name,
+	a.ADMISSION_DATE_TIME AS admission_datetime
 FROM DWREPO.dbo.PATIENT p
 JOIN DWREPO.dbo.ADMISSIONS a
 	ON a.PATIENT_ID = p.ID
@@ -414,8 +433,9 @@ LEFT JOIN DWREPO.dbo.MF_OPCS4 opcs
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT SYSTEM_NUMBER
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
-'''
+) AND a.ADMISSION_DATE_TIME > :admission_datetime
+;
+''')
 
 
 class CovidProcedureEtl(Etl):
@@ -427,8 +447,11 @@ class CovidProcedureEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Procedure.admission_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_PROCEDURE_SQL)
+				rs = conn.execute(COVID_PROCEDURE_SQL, admission_datetime=max_date)
 				for row in rs:
 					v = session.query(Procedure).filter_by(procedure_id=row['procedure_id']).one_or_none()
 					if v is None:
@@ -442,6 +465,7 @@ class CovidProcedureEtl(Etl):
 					v.procedure_number=row['procedure_number']
 					v.procedure_code=row['procedure_code']
 					v.procedure_name=row['procedure_name']
+					v.admission_datetime=row['admission_datetime']
 
 					inserts.append(v)
 					cnt += 1
@@ -455,12 +479,12 @@ class CovidProcedureEtl(Etl):
 			session.commit()
 
 
-COVID_TRANSFERS_SQL = '''
+COVID_TRANSFERS_SQL = text('''
 SELECT
 	t.ID as transfer_id,
 	a.id as spell_id,
 	p.SYSTEM_NUMBER AS uhl_system_number,
-	t.TRANSFER_DATETIME AS transfer_datetime,
+	t.TRANSFER_DATE_TIME AS transfer_datetime,
 	t.FROM_BED AS from_bed,
 	from_ward.CODE AS from_ward_code,
 	from_ward.WARD AS from_ward_name,
@@ -490,8 +514,9 @@ WHERE p.SYSTEM_NUMBER IN (
 	SELECT SYSTEM_NUMBER
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
+  AND t.TRANSFER_DATETIME > :transfer_datetime
 ;
-'''
+''')
 
 
 class CovidTransferEtl(Etl):
@@ -503,8 +528,11 @@ class CovidTransferEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Transfer.transfer_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_TRANSFERS_SQL)
+				rs = conn.execute(COVID_TRANSFERS_SQL, transfer_datetime=max_date)
 				for row in rs:
 					v = session.query(Transfer).filter_by(transfer_id=row['transfer_id']).one_or_none()
 					if v is None:
@@ -536,7 +564,7 @@ class CovidTransferEtl(Etl):
 			session.commit()
 
 
-COVID_BLOODS_SQL = '''
+COVID_BLOODS_SQL = text('''
 SELECT
 	t.id AS test_id,
 	p.Hospital_Number AS uhl_system_number,
@@ -547,6 +575,7 @@ SELECT
 	t.Units AS result_units,
 	r.WHO_COLLECTION_DATE_TIME AS sample_collected_datetime,
 	t.WHO_RESULTED_DATE_TIME AS result_datetime,
+	r.WHO_RECEIVE_DATE_TIME AS receive_datetime,
 	CASE WHEN CHARINDEX('{', t.Reference_Range) > 0 THEN
 		CASE WHEN ISNUMERIC(LEFT(t.Reference_Range, CHARINDEX('{', t.Reference_Range) - 1)) = 1 THEN
 			CAST(LEFT(t.Reference_Range, CHARINDEX('{', t.Reference_Range) - 1) AS DECIMAL(18,5))
@@ -568,7 +597,7 @@ LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_HAEM_WHO tc
 	ON t.Test_Code_Key=tc.Test_Codes_Row_ID
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
-WHERE r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+WHERE r.WHO_RECEIVE_DATE_TIME >= :receive_datetime
 	AND p.Hospital_Number IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
@@ -577,7 +606,7 @@ WHERE r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
 		OR  T.Result_Suppressed_Flag IS NULL
 	)
 ;
-'''
+''')
 
 
 class CovidBloodsEtl(Etl):
@@ -589,8 +618,11 @@ class CovidBloodsEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(BloodTest.receive_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_BLOODS_SQL)
+				rs = conn.execute(COVID_BLOODS_SQL, receive_datetime=max_date)
 				for row in rs:
 					v = session.query(BloodTest).filter_by(test_id=row['test_id']).one_or_none()
 					if v is None:
@@ -608,6 +640,7 @@ class CovidBloodsEtl(Etl):
 					v.result_datetime=row['result_datetime']
 					v.lower_range=row['lower_range']
 					v.higher_range=row['higher_range']
+					v.receive_datetime=row['receive_datetime']
 
 					inserts.append(v)
 					cnt += 1
@@ -621,7 +654,7 @@ class CovidBloodsEtl(Etl):
 			session.commit()
 
 
-COVID_MICROBIOLOGY_SQL = '''
+COVID_MICROBIOLOGY_SQL = text('''
 SELECT
 	t.id AS test_id,
 	p.Hospital_Number AS uhl_system_number,
@@ -652,13 +685,13 @@ LEFT OUTER JOIN DWPATH.dbo.MF_QUANTITY_CODES q
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
 WHERE
-	r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+	r.WHO_RECEIVE_DATE_TIME >= :sample_received_date_time
 	AND p.Hospital_Number IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
 	)
 ;
-'''
+''')
 
 
 class CovidMicrobiologyEtl(Etl):
@@ -670,8 +703,11 @@ class CovidMicrobiologyEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(MicrobiologyTest.sample_received_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_MICROBIOLOGY_SQL)
+				rs = conn.execute(COVID_MICROBIOLOGY_SQL, sample_received_date_time=max_date)
 				for row in rs:
 					if session.query(MicrobiologyTest).filter_by(test_id=row['test_id']).count() == 0:
 						v = MicrobiologyTest(
@@ -701,7 +737,7 @@ class CovidMicrobiologyEtl(Etl):
 			session.commit()
 
 
-COVID_PRESCRIBING_SQL = '''
+COVID_PRESCRIBING_SQL = text('''
 SELECT
 	p.externalId AS uhl_system_number,
 	d.id AS order_id,
@@ -726,13 +762,13 @@ LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_FREQUENCY_WHO freq
 	ON freq.CODE = d.frequency
 LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO route
 	ON route.reference = d.roa
-WHERE m.WHO_MEDICATION_CREATED_DATE > '01 Jan 2020'
+WHERE m.createdOn > :ordered_datetime
 	AND p.externalId IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
 	)
 ;
-'''
+''')
 
 
 class CovidPrescribingEtl(Etl):
@@ -744,8 +780,11 @@ class CovidPrescribingEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Prescribing.ordered_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_PRESCRIBING_SQL)
+				rs = conn.execute(COVID_PRESCRIBING_SQL, ordered_datetime=max_date)
 				for row in rs:
 					if session.query(Prescribing).filter_by(order_id=row['order_id']).count() == 0:
 						v = Prescribing(
@@ -775,7 +814,7 @@ class CovidPrescribingEtl(Etl):
 			session.commit()
 
 
-COVID_ADMINISTRATION_SQL = '''
+COVID_ADMINISTRATION_SQL = text('''
 SELECT
 	a.id AS administration_id,
 	p.externalId AS uhl_system_number,
@@ -798,9 +837,9 @@ LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO roa
 WHERE p.externalId IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
-	)
+	) AND a.eventDateTime > :administration_datetime
 ;
-'''
+''')
 
 
 class CovidAdministrationEtl(Etl):
@@ -812,8 +851,11 @@ class CovidAdministrationEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Administration.administration_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_ADMINISTRATION_SQL)
+				rs = conn.execute(COVID_ADMINISTRATION_SQL, administration_datetime=max_date)
 				for row in rs:
 					if session.query(Administration).filter_by(administration_id=row['administration_id']).count() == 0:
 						v = Administration(
@@ -840,15 +882,15 @@ class CovidAdministrationEtl(Etl):
 			session.commit()
 
 
-COVID_OBSERVATION_SQL = '''
+COVID_OBSERVATION_SQL = text('''
 SELECT *
 FROM DWNERVECENTRE.dbo.ObsExport oe
 WHERE [System Number > Patient ID] IN (
 	SELECT asc2.UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid asc2
-)
+) AND oe.Timestamp >= :observation_datetime
 ;
-'''
+''')
 
 
 class CovidObservationEtl(Etl):
@@ -860,8 +902,11 @@ class CovidObservationEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(Observation.observation_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_OBSERVATION_SQL)
+				rs = conn.execute(COVID_OBSERVATION_SQL, observation_datetime=max_date)
 
 				observations = [c[:-4] for c in rs.keys() if c.lower().endswith('_ews') and c[:-4] in rs.keys()]
 				ews_names = {c[:-4]: c for c in rs.keys() if c.lower().endswith('_ews')}
@@ -894,7 +939,7 @@ class CovidObservationEtl(Etl):
 			session.commit()
 
 
-COVID_CLINICAL_CARE_PERIOD_SQL = '''
+COVID_CLINICAL_CARE_PERIOD_SQL = text('''
 SELECT
 	ccp.ID AS ccp_id,
 	p.SYSTEM_NUMBER AS uhl_system_number,
@@ -925,9 +970,9 @@ WHERE ccp.CCP_START_DATE >= '01 Jan 2020'
 	AND p.SYSTEM_NUMBER IN (
 		SELECT SYSTEM_NUMBER
 		FROM DWBRICCS.dbo.all_suspected_covid
-	)
+	) AND ccp.CCP_START_DATE_TIME >= :start_datetime
 ;
-'''
+''')
 
 
 class CovidClincalCarePeriodEtl(Etl):
@@ -939,8 +984,11 @@ class CovidClincalCarePeriodEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
+			max_date = session.query(func.max(CriticalCarePeriod.start_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_CLINICAL_CARE_PERIOD_SQL)
+				rs = conn.execute(COVID_CLINICAL_CARE_PERIOD_SQL, start_datetime=max_date)
 				for row in rs:
 					if session.query(CriticalCarePeriod).filter_by(ccp_id=row['ccp_id']).count() == 0:
 						v = CriticalCarePeriod(
@@ -952,15 +1000,15 @@ class CovidClincalCarePeriodEtl(Etl):
 							start_datetime=row['CCP_START_DATE_TIME'],
 							basic_respiratory_support_days=row['BASIC_RESPIRATORY_SUPPORT_DAYS'],
 							advanced_respiratory_support_days=row['ADVANCED_RESPIRATORY_SUPPORT_DAYS'],
-							basic_cardiovascular_support_days=['BASIC_CARDIOVASCULAR_SUPPORT_DAYS'],
-							advanced_cardiovascular_support_days=['ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS'],
-							renal_support_days=['RENAL_SUPPORT_DAYS'],
-							neurological_support_days=['NEUROLOGICAL_SUPPORT_DAYS'],
-							dermatological_support_days=['DERMATOLOGICAL_SUPPORT_DAYS'],
-							liver_support_days=['LIVER_SUPPORT_DAYS'],
-							critical_care_level_2_days=['CRITICAL_CARE_LEVEL_2_DAYS'],
-							critical_care_level_3_days=['CRITICAL_CARE_LEVEL_3_DAYS'],
-							discharge_datetime=['CCP_END_DATE_TIME'],
+							basic_cardiovascular_support_days=row['BASIC_CARDIOVASCULAR_SUPPORT_DAYS'],
+							advanced_cardiovascular_support_days=row['ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS'],
+							renal_support_days=row['RENAL_SUPPORT_DAYS'],
+							neurological_support_days=row['NEUROLOGICAL_SUPPORT_DAYS'],
+							dermatological_support_days=row['DERMATOLOGICAL_SUPPORT_DAYS'],
+							liver_support_days=row['LIVER_SUPPORT_DAYS'],
+							critical_care_level_2_days=row['CRITICAL_CARE_LEVEL_2_DAYS'],
+							critical_care_level_3_days=row['CRITICAL_CARE_LEVEL_3_DAYS'],
+							discharge_datetime=row['CCP_END_DATE_TIME'],
 						)
 
 						inserts.append(v)
