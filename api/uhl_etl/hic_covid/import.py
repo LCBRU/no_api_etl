@@ -908,23 +908,29 @@ class CovidObservationEtl(Etl):
 			with uhl_dwh_databases_engine() as conn:
 				rs = conn.execute(COVID_OBSERVATION_SQL, observation_datetime=max_date)
 
-				observations = [c[:-4] for c in rs.keys() if c.lower().endswith('_ews') and c[:-4] in rs.keys()]
+				observation_names = [c[:-4] for c in rs.keys() if c.lower().endswith('_ews') and c[:-4] in rs.keys()]
 				ews_names = {c[:-4]: c for c in rs.keys() if c.lower().endswith('_ews')}
 				units_names = {c[:-6]: c for c in rs.keys() if c.lower().endswith('_units')}
 
+				observations = [(o, ews_names[o], units_names[o]) for o in observation_names]
+
 				for row in rs:
 
-					for o in observations:
+					observation_id = row['ObsId']
+					uhl_system_number = row['System Number > Patient ID']
+					observation_datetime = row['Timestamp']
 
-						if session.query(Observation).filter_by(observation_id=row['ObsId'], observation_name=o).count() == 0:
+					if session.query(Observation).filter_by(observation_id=row['ObsId']).count() == 0:
+						for o, ews, units in observations:
+
 							v = Observation(
-								uhl_system_number=row['System Number > Patient ID'],
-								observation_id=row['ObsId'],
-								observation_datetime=row['Timestamp'],
+								uhl_system_number=uhl_system_number,
+								observation_id=observation_id,
+								observation_datetime=observation_datetime,
 								observation_name=o,
 								observation_value=row[o],
-								observation_ews=row[ews_names[o]],
-								observation_units=row[units_names[o]],
+								observation_ews=row[ews],
+								observation_units=row[units],
 							)
 
 							inserts.append(v)
