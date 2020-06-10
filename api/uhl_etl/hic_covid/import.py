@@ -889,6 +889,7 @@ WHERE [System Number > Patient ID] IN (
 	SELECT asc2.UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid asc2
 ) AND oe.Timestamp >= :observation_datetime
+ORDER BY  oe.Timestamp
 ;
 ''')
 
@@ -923,23 +924,25 @@ class CovidObservationEtl(Etl):
 					if session.query(Observation).filter_by(observation_id=row['ObsId']).count() == 0:
 						for o, ews, units in observations:
 
-							v = Observation(
-								uhl_system_number=uhl_system_number,
-								observation_id=observation_id,
-								observation_datetime=observation_datetime,
-								observation_name=o,
-								observation_value=row[o],
-								observation_ews=row[ews],
-								observation_units=row[units],
-							)
+							if row[o] is not None or row[ews] is not None:
+								v = Observation(
+									uhl_system_number=uhl_system_number,
+									observation_id=observation_id,
+									observation_datetime=observation_datetime,
+									observation_name=o,
+									observation_value=row[o],
+									observation_ews=row[ews],
+									observation_units=row[units],
+								)
 
-							inserts.append(v)
-							cnt += 1
+								inserts.append(v)
+								cnt += 1
 
-							if cnt % 1000 == 0:
-								logging.info(f"Saving observation.  total = {cnt}")
-								session.add_all(inserts)
-								inserts = []
+								if cnt % 1000 == 0:
+									logging.info(f"Saving observation.  total = {cnt}")
+									session.add_all(inserts)
+									session.commit()
+									inserts = []
 
 			session.add_all(inserts)
 			session.commit()
