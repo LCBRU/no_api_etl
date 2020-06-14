@@ -250,6 +250,21 @@ class CriticalCarePeriod(Base):
     discharge_datetime = Column(DateTime)
 
 
+class Order(Base):
+    __tablename__ = 'order'
+
+    id = Column(Integer, primary_key=True)
+    order_id = Column(String)
+    order_key = Column(String)
+    uhl_system_number = Column(String)
+    scheduled_datetime = Column(DateTime)
+    request_datetime = Column(DateTime)
+    examination_code = Column(String)
+    examination_description = Column(String)
+    snomed_code = Column(String)
+    modality = Column(String)
+
+
 @contextmanager
 def hic_covid_session():
     try:

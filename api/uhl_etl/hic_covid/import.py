@@ -1,6 +1,6 @@
 import logging
 import requests
-from datetime import timedelta  
+from datetime import timedelta, datetime
 from urllib.parse import urlparse, urlunparse, urlencode
 from sqlalchemy import func
 from sqlalchemy.sql import text
@@ -25,6 +25,7 @@ from api.uhl_etl.hic_covid.model import (
 	Administration,
 	Observation,
 	CriticalCarePeriod,
+	Order,
 )
 
 
@@ -867,7 +868,7 @@ class CovidAdministrationEtl(Etl):
 							dose=row['dose'],
 							dose_unit=row['dose_unit'],
 							form_name=row['form_name'],
-							route_name=['route_name'],
+							route_name=row['route_name'],
 						)
 
 						inserts.append(v)
@@ -1024,8 +1025,81 @@ class CovidClincalCarePeriodEtl(Etl):
 						cnt += 1
 
 						if cnt % 1000 == 0:
-							logging.info(f"Saving administration.  total = {cnt}")
+							logging.info(f"Saving clinical care period.  total = {cnt}")
 							session.add_all(inserts)
+							inserts = []
+
+			session.add_all(inserts)
+			session.commit()
+
+
+COVID_ORDERS_SQL = text('''
+SELECT
+	his.HIS_ID AS uhl_system_number,
+	o.ORDER_ID,
+	o.ORDER_KEY,
+	o.SCHEDULE_DATE,
+	ev.Request_Date_Time,
+	o.EXAMINATION AS examination_code,
+	exam_cd.NAME AS examination_description,
+	SUBSTRING(exam_cd.SNOMEDCT, 1, CHARINDEX(',', exam_cd.SNOMEDCT + ',') - 1) AS snomed_code,
+	modality.MODALITY
+FROM DWRAD.dbo.CRIS_EXAMS_TBL exam
+JOIN DWRAD.dbo.CRIS_EVENTS_TBL ev
+	ON ev.EVENT_KEY = exam.EVENT_KEY
+JOIN DWRAD.dbo.CRIS_EXAMCD_TBL exam_cd
+	ON exam_cd.CODE = exam.EXAMINATION
+JOIN DWRAD.dbo.CRIS_ORDERS_TBL o
+	ON o.EXAM_KEY = exam.EXAM_KEY
+JOIN DWRAD.dbo.CRIS_HIS_TBL his
+	ON his.PASLINK_KEY = o.PASLINK_KEY
+JOIN DWRAD.dbo.MF_CRISMODL modality
+	ON modality.CODE = exam_cd.MODALITY
+WHERE ev.Request_Date_Time >= :request_datetime
+	AND ev.Request_Date_Time < :current_datetime
+	AND his.HIS_ID in (
+		SELECT asc2.UHL_System_Number
+		FROM DWBRICCS.dbo.all_suspected_covid asc2
+	)
+;
+''')
+
+
+class OrdersEtl(Etl):
+	def __init__(self):
+		super().__init__(schedule=Schedule.daily_7pm)
+
+	def do_etl(self):
+		inserts = []
+		cnt = 0
+
+		with hic_covid_session() as session:
+			max_date = session.query(func.max(Order.request_datetime)).scalar()
+			max_date = max_date or '01-Jan-2020'
+
+			with uhl_dwh_databases_engine() as conn:
+				rs = conn.execute(COVID_ORDERS_SQL, request_datetime=max_date, current_datetime=datetime.utcnow())
+				for row in rs:
+					if session.query(Order).filter_by(order_id=row['ORDER_ID']).count() == 0:
+						v = Order(
+							uhl_system_number=row['uhl_system_number'],
+							order_id=row['ORDER_ID'],
+							order_key=row['ORDER_KEY'],
+							scheduled_datetime=row['SCHEDULE_DATE'],
+							request_datetime=row['Request_Date_Time'],
+							examination_code=row['examination_code'],
+							examination_description=row['examination_description'],
+							snomed_code=row['snomed_code'],
+							modality=row['MODALITY'],
+						)
+
+						inserts.append(v)
+						cnt += 1
+
+						if cnt % 1000 == 0:
+							logging.info(f"Saving order.  total = {cnt}")
+							session.add_all(inserts)
+							session.commit()
 							inserts = []
 
 			session.add_all(inserts)
