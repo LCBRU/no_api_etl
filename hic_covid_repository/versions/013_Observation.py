@@ -22,7 +22,7 @@ def upgrade(migrate_engine):
         "observation",
         meta,
         Column("id", Integer, primary_key=True),
-        Column("observation_id", NVARCHAR(50), index=True, nullable=False),
+        Column("observation_id", Integer, index=True, nullable=False),
         Column("uhl_system_number", NVARCHAR(50), index=True, nullable=False),
         Column("observation_datetime", DateTime),
         Column("observation_name", NVARCHAR(100)),

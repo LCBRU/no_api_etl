@@ -406,6 +406,7 @@ class CovidDiagnosisEtl(Etl):
 						logging.info(f"Saving diagnosis batch. Total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -475,6 +476,7 @@ class CovidProcedureEtl(Etl):
 						logging.info(f"Saving procedure batch.  total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -560,6 +562,7 @@ class CovidTransferEtl(Etl):
 						logging.info(f"Saving transfer batch.  total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -650,6 +653,7 @@ class CovidBloodsEtl(Etl):
 						logging.info(f"Saving Test batch.  total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -733,6 +737,7 @@ class CovidMicrobiologyEtl(Etl):
 							logging.info(f"Saving Test batch.  total = {cnt}")
 							session.add_all(inserts)
 							inserts = []
+							session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -810,6 +815,7 @@ class CovidPrescribingEtl(Etl):
 							logging.info(f"Saving medication.  total = {cnt}")
 							session.add_all(inserts)
 							inserts = []
+							session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -839,6 +845,7 @@ WHERE p.externalId IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
 	) AND a.eventDateTime > :administration_datetime
+ORDER BY a.eventDateTime
 ;
 ''')
 
@@ -878,6 +885,7 @@ class CovidAdministrationEtl(Etl):
 							logging.info(f"Saving administration.  total = {cnt}")
 							session.add_all(inserts)
 							inserts = []
+							session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -904,8 +912,8 @@ class CovidObservationEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Observation.observation_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			max_date = session.query(func.max(Observation.observation_datetime)).scalar() or '01-Jan-2020'
+			max_obs_id = int(session.query(func.max(Observation.observation_id)).scalar() or 0)
 
 			with uhl_dwh_databases_engine() as conn:
 				rs = conn.execute(COVID_OBSERVATION_SQL, observation_datetime=max_date)
@@ -922,28 +930,30 @@ class CovidObservationEtl(Etl):
 					uhl_system_number = row['System Number > Patient ID']
 					observation_datetime = row['Timestamp']
 
-					if session.query(Observation).filter_by(observation_id=row['ObsId']).count() == 0:
-						for o, ews, units in observations:
+					if observation_id <= max_obs_id:
+						if session.query(Observation).filter_by(observation_id=observation_id).count() > 0:
+							continue
 
-							if row[o] is not None or row[ews] is not None:
-								v = Observation(
-									uhl_system_number=uhl_system_number,
-									observation_id=observation_id,
-									observation_datetime=observation_datetime,
-									observation_name=o,
-									observation_value=row[o],
-									observation_ews=row[ews],
-									observation_units=row[units],
-								)
+					for o, ews, units in observations:
+						if row[o] is not None or row[ews] is not None:
+							v = Observation(
+								uhl_system_number=uhl_system_number,
+								observation_id=observation_id,
+								observation_datetime=observation_datetime,
+								observation_name=o,
+								observation_value=row[o],
+								observation_ews=row[ews],
+								observation_units=row[units],
+							)
 
-								inserts.append(v)
-								cnt += 1
+							inserts.append(v)
+							cnt += 1
 
-								if cnt % 1000 == 0:
-									logging.info(f"Saving observation.  total = {cnt}")
-									session.add_all(inserts)
-									session.commit()
-									inserts = []
+							if cnt % 1000 == 0:
+								logging.info(f"Saving observation.  total = {cnt}")
+								session.add_all(inserts)
+								session.commit()
+								inserts = []
 
 			session.add_all(inserts)
 			session.commit()
@@ -1028,6 +1038,7 @@ class CovidClincalCarePeriodEtl(Etl):
 							logging.info(f"Saving clinical care period.  total = {cnt}")
 							session.add_all(inserts)
 							inserts = []
+							session.commit()
 
 			session.add_all(inserts)
 			session.commit()
