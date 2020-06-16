@@ -669,7 +669,7 @@ SELECT
 	t.Test_code test_code,
 	tc.Test_Expansion test_name,
 	org.Organism organism,
-	COALESCE(LTRIM(RTRIM(REPLACE(q.Quantity_Description, '*', ''))), t.Result_Expansion) AS test_result,
+	COALESCE(org.Quantity_Description, t.Result_Expansion) AS test_result,
 	r.WHO_COLLECTION_DATE_TIME sample_collected_date_time,
 	r.WHO_RECEIVE_DATE_TIME sample_received_date_time,
 	t.WHO_TEST_RESULTED_DATE_TIME result_datetime,
@@ -681,17 +681,29 @@ INNER JOIN	DWPATH.dbo.ORDERS_FILE AS o
 	ON r.Order_No = o.Order_Number
 INNER JOIN	DWPATH.dbo.REQUEST_PATIENT_DETAILS AS p
 	ON o.D_Level_Pointer = p.Request_Patient_Details
-LEFT JOIN DWPATH.dbo.MICRO_ORGANISMS org
-	ON org.Micro_Tests = t.Micro_Tests
+LEFT JOIN (
+	SELECT
+		org.Micro_Tests,
+		org.Organism,
+		q.Quantity_Description,
+		CASE
+			WHEN q.Rec_as_Signif_Growth = 'Y' THEN 'Yes'
+			ELSE 'No'
+		END AS Significant_Growth
+	FROM DWPATH.dbo.MICRO_ORGANISMS org
+	JOIN DWPATH.dbo.MF_ORGANISM_CODES oc
+		ON oc.Organism_code = org.Organism_Code
+		AND oc.Organism_category = 'O'
+	JOIN DWPATH.dbo.MF_QUANTITY_CODES q
+		ON org.Quantifier=q.APEX_ID
+) org ON org.Micro_Tests = t.Micro_Tests
 LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_MICRO_WHO tc
 	ON t.Test_Code_Key=tc.Test_Codes_Row_ID
-LEFT OUTER JOIN DWPATH.dbo.MF_QUANTITY_CODES q
-	ON org.Quantifier=q.APEX_ID
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
 WHERE
 	r.WHO_RECEIVE_DATE_TIME >= :sample_received_date_time
-	AND p.Hospital_Number IN (
+	AND	p.Hospital_Number IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
 	)
@@ -724,7 +736,7 @@ class CovidMicrobiologyEtl(Etl):
 							test_name=row['test_name'],
 							organism=row['organism'],
 							result=row['test_result'],
-							sample_collected_datetime=['sample_collected_date_time'],
+							sample_collected_datetime=row['sample_collected_date_time'],
 							sample_received_datetime=row['sample_received_date_time'],
 							result_datetime=row['result_datetime'],
 							specimen_site=row['specimen_site'],
