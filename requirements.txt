@@ -12,3 +12,4 @@ lxml
 python-dotenv
 pandas
 pyodbc
+python-dateutil
