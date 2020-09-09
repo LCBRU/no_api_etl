@@ -294,7 +294,7 @@ JOIN DWREPO.dbo.MF_SPECIALTY spec
 	ON spec.CODE = ce.SPECIALTY_CODE
 	AND spec.LOGICALLY_DELETED_FLAG = 0
 WHERE p.SYSTEM_NUMBER IN (
-	SELECT SYSTEM_NUMBER
+	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > :admission_datetime
 ORDER BY p.SYSTEM_NUMBER, a.ID, ce.EPISODE_NUMBER
@@ -363,7 +363,7 @@ LEFT JOIN DWREPO.dbo.MF_DIAGNOSIS mf_d
 	ON mf_d.DIAGNOSIS_CODE = d.DIAGNOSIS_CODE
 	AND mf_d.LOGICALLY_DELETED_FLAG = 0
 WHERE p.SYSTEM_NUMBER IN (
-	SELECT SYSTEM_NUMBER
+	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > :admission_datetime
 ;
@@ -433,7 +433,7 @@ LEFT JOIN DWREPO.dbo.MF_OPCS4 opcs
 	ON opcs.PROCEDURE_CODE = proc_.PROCEDURE_CODE
 	AND opcs.LOGICALLY_DELETED_FLAG = 0
 WHERE p.SYSTEM_NUMBER IN (
-	SELECT SYSTEM_NUMBER
+	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > :admission_datetime
 ;
@@ -484,40 +484,82 @@ class CovidProcedureEtl(Etl):
 
 COVID_TRANSFERS_SQL = text('''
 SELECT
-	t.ID as transfer_id,
+	a.ID as transfer_id,
+	'admission' AS transfer_type,
 	a.id as spell_id,
+	a.admission_datetime AS transfer_datetime,
 	p.SYSTEM_NUMBER AS uhl_system_number,
+	ward.CODE AS ward_code,
+	ward.WARD AS ward_name,
+	hospital.HOSPITAL AS hospital
+FROM DWREPO.dbo.PATIENT p
+JOIN DWREPO.dbo.ADMISSIONS a
+	ON a.PATIENT_ID = p.ID
+LEFT JOIN DWREPO.dbo.MF_WARD ward
+	ON ward.CODE = a.ward_code
+	AND ward.LOGICALLY_DELETED_FLAG = 0
+LEFT JOIN DWREPO.dbo.MF_HOSPITAL hospital
+	ON hospital.CODE = a.HOSPITAL_CODE
+	AND hospital.LOGICALLY_DELETED_FLAG = 0
+WHERE p.SYSTEM_NUMBER IN (
+	SELECT UHL_System_Number
+	FROM DWBRICCS.dbo.all_suspected_covid
+) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
+  AND a.admission_datetime > :transfer_datetime
+
+UNION ALL
+
+SELECT
+	t.ID as transfer_id,
+	'transfer' AS transfer_type,
+	a.id as spell_id,
 	t.TRANSFER_DATE_TIME AS transfer_datetime,
-	t.FROM_BED AS from_bed,
-	from_ward.CODE AS from_ward_code,
-	from_ward.WARD AS from_ward_name,
-	from_hospital.HOSPITAL AS from_hospital,
-	t.TO_BED AS to_bed,
-	to_ward.CODE AS to_ward_code,
-	to_ward.WARD AS to_ward_name,
-	to_hospital.HOSPITAL AS to_hospital
+	p.SYSTEM_NUMBER AS uhl_system_number,
+	ward.CODE AS ward_code,
+	ward.WARD AS ward_name,
+	hospital.HOSPITAL AS hospital
 FROM DWREPO.dbo.PATIENT p
 JOIN DWREPO.dbo.ADMISSIONS a
 	ON a.PATIENT_ID = p.ID
 JOIN DWREPO.dbo.TRANSFERS t
 	ON t.ADMISSIONS_ID = a.ID
-JOIN DWREPO.dbo.MF_WARD from_ward
-	ON from_ward.CODE = t.FROM_WARD
-	AND from_ward.LOGICALLY_DELETED_FLAG = 0
-JOIN DWREPO.dbo.MF_WARD to_ward
-	ON to_ward.CODE = t.TO_WARD
-	AND to_ward.LOGICALLY_DELETED_FLAG = 0
-JOIN DWREPO.dbo.MF_HOSPITAL from_hospital
-	ON from_hospital.CODE = t.FROM_HOSPITAL_CODE
-	AND from_hospital.LOGICALLY_DELETED_FLAG = 0
-JOIN DWREPO.dbo.MF_HOSPITAL to_hospital
-	ON to_hospital.CODE = t.TO_HOSPITAL_CODE
-	AND to_hospital.LOGICALLY_DELETED_FLAG = 0
+LEFT JOIN DWREPO.dbo.MF_WARD ward
+	ON ward.CODE = t.TO_WARD
+	AND ward.LOGICALLY_DELETED_FLAG = 0
+LEFT JOIN DWREPO.dbo.MF_HOSPITAL hospital
+	ON hospital.CODE = t.TO_HOSPITAL_CODE
+	AND hospital.LOGICALLY_DELETED_FLAG = 0
 WHERE p.SYSTEM_NUMBER IN (
-	SELECT SYSTEM_NUMBER
+	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
-  AND t.TRANSFER_DATETIME > :transfer_datetime
+  AND a.admission_datetime > :transfer_datetime
+
+UNION ALL
+  
+SELECT
+	a.ID as transfer_id,
+	'discharge' AS transfer_type,
+	a.id as spell_id,
+	a.discharge_date_time AS transfer_datetime,
+	p.SYSTEM_NUMBER AS uhl_system_number,
+	ward.CODE AS ward_code,
+	ward.WARD AS ward_name,
+	hospital.HOSPITAL AS hospital
+FROM DWREPO.dbo.PATIENT p
+JOIN DWREPO.dbo.ADMISSIONS a
+	ON a.PATIENT_ID = p.ID
+LEFT JOIN DWREPO.dbo.MF_WARD ward
+	ON ward.CODE = a.discharge_ward
+	AND ward.LOGICALLY_DELETED_FLAG = 0
+LEFT JOIN DWREPO.dbo.MF_HOSPITAL hospital
+	ON hospital.CODE = a.discharge_hospital
+	AND hospital.LOGICALLY_DELETED_FLAG = 0
+WHERE p.SYSTEM_NUMBER IN (
+	SELECT UHL_System_Number
+	FROM DWBRICCS.dbo.all_suspected_covid
+) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
+  AND a.admission_datetime > :transfer_datetime
 ;
 ''')
 
@@ -537,23 +579,19 @@ class CovidTransferEtl(Etl):
 			with uhl_dwh_databases_engine() as conn:
 				rs = conn.execute(COVID_TRANSFERS_SQL, transfer_datetime=max_date)
 				for row in rs:
-					v = session.query(Transfer).filter_by(transfer_id=row['transfer_id']).one_or_none()
+					v = session.query(Transfer).filter_by(transfer_id=row['transfer_id'], transfer_type=row['transfer_type']).one_or_none()
 					if v is None:
 						v = Transfer(
 							transfer_id=row['transfer_id'],
 						)
 
 					v.spell_id=row['spell_id']
+					v.transfer_type=row['transfer_type']
 					v.uhl_system_number=row['uhl_system_number']
 					v.transfer_datetime=row['transfer_datetime']
-					v.from_bed=row['from_bed']
-					v.from_ward_code=row['from_ward_code']
-					v.from_ward_name=row['from_ward_name']
-					v.from_hospital=row['from_hospital']
-					v.to_bed=row['to_bed']
-					v.to_ward_code=row['to_ward_code']
-					v.to_ward_name=row['to_ward_name']
-					v.to_hospital=row['to_hospital']
+					v.ward_code=row['ward_code']
+					v.ward_name=row['ward_name']
+					v.hospital=row['hospital']
 
 					inserts.append(v)
 					cnt += 1
@@ -581,12 +619,12 @@ SELECT
 	t.WHO_RESULTED_DATE_TIME AS result_datetime,
 	r.WHO_RECEIVE_DATE_TIME AS receive_datetime,
 	CASE WHEN CHARINDEX('{', t.Reference_Range) > 0 THEN
-		CASE WHEN ISNUMERIC(LEFT(t.Reference_Range, CHARINDEX('{', t.Reference_Range) - 1)) = 1 THEN
+		CASE WHEN DWBRICCS.dbo.IsReallyNumeric(LEFT(t.Reference_Range, CHARINDEX('{', t.Reference_Range) - 1)) = 1 THEN
 			CAST(LEFT(t.Reference_Range, CHARINDEX('{', t.Reference_Range) - 1) AS DECIMAL(18,5))
 		END
 	END AS lower_range,
 	CASE WHEN CHARINDEX('{', t.Reference_Range) > 0 THEN
-		CASE WHEN ISNUMERIC(SUBSTRING(t.Reference_Range, CHARINDEX('{', t.Reference_Range) + 1, LEN(t.Reference_Range))) = 1 THEN
+		CASE WHEN DWBRICCS.dbo.IsReallyNumeric(SUBSTRING(t.Reference_Range, CHARINDEX('{', t.Reference_Range) + 1, LEN(t.Reference_Range))) = 1 THEN
 			CAST(SUBSTRING(t.Reference_Range, CHARINDEX('{', t.Reference_Range) + 1, LEN(t.Reference_Range)) AS DECIMAL(18,5))
 		END
 	END AS higher_range
@@ -601,14 +639,14 @@ LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_HAEM_WHO tc
 	ON t.Test_Code_Key=tc.Test_Codes_Row_ID
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
-WHERE r.WHO_RECEIVE_DATE_TIME >= :receive_datetime
-	AND p.Hospital_Number IN (
+WHERE p.Hospital_Number IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
 	) AND (
 			T.Result_Suppressed_Flag = 'N'
 		OR  T.Result_Suppressed_Flag IS NULL
 	)
+	AND r.WHO_RECEIVE_DATE_TIME >= :receive_datetime
 ;
 ''')
 
@@ -1000,7 +1038,7 @@ JOIN DWREPO.dbo.MF_LOCATION_WHO loc
 	ON loc.code = ccp.CCP_LOCATION_CODE
 WHERE ccp.CCP_START_DATE >= '01 Jan 2020'
 	AND p.SYSTEM_NUMBER IN (
-		SELECT SYSTEM_NUMBER
+		SELECT UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid
 	) AND ccp.CCP_START_DATE_TIME >= :start_datetime
 ;

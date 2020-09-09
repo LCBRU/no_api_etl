@@ -132,16 +132,12 @@ class Transfer(Base):
     id = Column(Integer, primary_key=True)
     spell_id = Column(String)
     transfer_id = Column(String)
+    transfer_type = Column(String)
     uhl_system_number = Column(String)
     transfer_datetime = Column(DateTime)
-    from_bed = Column(String)
-    from_ward_code = Column(String)
-    from_ward_name = Column(String)
-    from_hospital = Column(String)
-    to_bed = Column(String)
-    to_ward_code = Column(String)
-    to_ward_name = Column(String)
-    to_hospital = Column(String)
+    ward_code = Column(String)
+    ward_name = Column(String)
+    hospital = Column(String)
 
 
 class BloodTest(Base):
