@@ -223,8 +223,10 @@ class MysqlToMssqlStep(EtlStep):
                         inserts = inserts.replace('\\_', '_')
                         inserts = inserts.replace('{escaped_backslash}', '\\\\')
 
-                        # MYSQL uses '0000-00-00' for NULL dates
+                        # MYSQL uses '0000-00-00' for NULL dates and 
+                        # '0000-00-00 00:00:00' for NULL datetimes
                         inserts = inserts.replace('\'0000-00-00\'', 'NULL')
+                        inserts = inserts.replace('\'0000-00-00 00:00:00\'', 'NULL')
 
                         conn.execute(inserts)
 
@@ -569,16 +571,16 @@ class CombinedDataLakeEtl(Etl):
         with ThreadPoolExecutor(max_workers = 4) as executor:
 
             for step_class in [
-                DataLake_RedCapBriccsStep,
-                DataLake_OpenSpecimenStep,
-                DataLake_BriccsStep,
-                DataLake_BriccsNorthamtonStep,
-                DataLake_CivicrmStep,
+                # DataLake_RedCapBriccsStep,
+                # DataLake_OpenSpecimenStep,
+                # DataLake_BriccsStep,
+                # DataLake_BriccsNorthamtonStep,
+                # DataLake_CivicrmStep,
                 DataLake_IdentityStep,
-                DataLake_GenvascGpPortalStep,
-                DataLake_RedCapBriccsExtStep,
-                DataLake_RedCapBriccsUoLCrfStep,
-                DataLake_RedCapBriccsUoLSurveyStep,
+                # DataLake_GenvascGpPortalStep,
+                # DataLake_RedCapBriccsExtStep,
+                # DataLake_RedCapBriccsUoLCrfStep,
+                # DataLake_RedCapBriccsUoLSurveyStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)

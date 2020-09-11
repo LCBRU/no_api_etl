@@ -30,31 +30,31 @@ from api.uhl_etl.hic_covid.model import (
 
 
 COVID_DEMOGRAPHICS_SQL = '''
-SELECT
-	replace(p.NHS_NUMBER,' ','') AS nhs_number,
-	p.SYSTEM_NUMBER AS uhl_system_number,
-	p.CURRENT_GP_PRACTICE AS gp_practice,
-	MIN(cv.WHO_AGE_AT_COLLECTION_DATE_YEARS) AS age,
-	p.DATE_OF_DEATH AS date_of_death,
-	p.Post_Code AS postcode,
-	CASE p.Sex
-		WHEN 'U' THEN '0'
-		WHEN 'M' THEN '1'
-		WHEN 'F' THEN '2'
-		ELSE '9'
-	END sex,
-	p.ETHNIC_ORIGIN_CODE ethnic_category
-FROM DWMARTS.dbo.PATH_MICRO_COVID_DATA cv
-JOIN [DWREPO].[dbo].[PATIENT] p
-	ON p.SYSTEM_NUMBER = cv.Hospital_Number
-GROUP BY
-	p.NHS_NUMBER,
-	p.SYSTEM_NUMBER,
-	p.CURRENT_GP_PRACTICE,
-	p.DATE_OF_DEATH,
-	p.Post_Code,
-	p.Sex,
-	p.ETHNIC_ORIGIN_CODE
+    SELECT
+        replace(p.NHS_NUMBER,' ','') AS nhs_number,
+        p.SYSTEM_NUMBER AS uhl_system_number,
+        p.CURRENT_GP_PRACTICE AS gp_practice,
+        DWBRICCS.[dbo].[GetAgeAtDate](MIN(p.PATIENT_DATE_OF_BIRTH), MIN(cv.dateadded)) AS age,
+        p.DATE_OF_DEATH AS date_of_death,
+        p.Post_Code AS postcode,
+        CASE p.Sex
+            WHEN 'U' THEN '0'
+            WHEN 'M' THEN '1'
+            WHEN 'F' THEN '2'
+            ELSE '9'
+        END sex,
+        p.ETHNIC_ORIGIN_CODE ethnic_category
+    FROM DWBRICCS.dbo.all_suspected_covid cv
+    JOIN [DWREPO].[dbo].[PATIENT] p
+        ON p.SYSTEM_NUMBER = cv.uhl_system_number
+    GROUP BY
+        p.NHS_NUMBER,
+        p.SYSTEM_NUMBER,
+        p.CURRENT_GP_PRACTICE,
+        p.DATE_OF_DEATH,
+        p.Post_Code,
+        p.Sex,
+        p.ETHNIC_ORIGIN_CODE
 '''
 
 
