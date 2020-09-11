@@ -11,6 +11,7 @@ from api.environment import (
 	IDENTITY_HOST,
 )
 from api.uhl_etl.hic_covid.model import (
+	hic_covid_engine,
 	hic_covid_session,
 	Demographics,
 	Virology,
@@ -67,6 +68,7 @@ class CovidParticipantsEtl(Etl):
 		updates = []
 
 		with hic_covid_session() as session:
+
 			with uhl_dwh_databases_engine() as conn:
 				rs = conn.execute(COVID_DEMOGRAPHICS_SQL)
 				for row in rs:
@@ -143,7 +145,6 @@ WHERE
 	t.Test_code IN  ( 'VCOV', 'VCOV3', 'VCOV4', 'VCOV5' )
 	OR (t.Test_code = 'VBIR'AND org.Organism  LIKE  '%CoV%')
 ) 	AND r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
-    AND r.WHO_RECEIVE_DATE_TIME >= :received_date
 ;
 ''')
 
@@ -154,32 +155,39 @@ class CovidVirologyEtl(Etl):
 
 	def do_etl(self):
 		inserts = []
+		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Virology.sample_received_date_time)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE {Virology.__tablename__};")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_VIROLOGY_SQL, received_date=max_date)
+				rs = conn.execute(COVID_VIROLOGY_SQL)
 				for row in rs:
-					if session.query(Virology).filter_by(test_id=row['test_id']).count() == 0:
-						v = Virology(
-							uhl_system_number=row['uhl_system_number'],
-							test_id=row['test_id'],
-							laboratory_code=row['laboratory_code'],
-							order_code=row['order_code'],
-							order_name=row['order_name'],
-							test_code=row['test_code'],
-							test_name=row['test_name'],
-							organism=row['organism'],
-							test_result=row['test_result'],
-							sample_collected_date_time=['sample_collected_date_time'],
-							sample_received_date_time=row['sample_received_date_time'],
-							sample_available_date_time=row['sample_available_date_time'],
-							order_status=row['order_status'],
-						)
+					v = Virology(
+						uhl_system_number=row['uhl_system_number'],
+						test_id=row['test_id'],
+						laboratory_code=row['laboratory_code'],
+						order_code=row['order_code'],
+						order_name=row['order_name'],
+						test_code=row['test_code'],
+						test_name=row['test_name'],
+						organism=row['organism'],
+						test_result=row['test_result'],
+						sample_collected_date_time=['sample_collected_date_time'],
+						sample_received_date_time=row['sample_received_date_time'],
+						sample_available_date_time=row['sample_available_date_time'],
+						order_status=row['order_status'],
+					)
 
-						inserts.append(v)
+					inserts.append(v)
+					cnt += 1
+
+					if cnt % 1000 == 0:
+						logging.info(f"Saving Virology batch. Total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -206,7 +214,7 @@ FROM DWNERVECENTRE.dbo.F_PAT_PRESENT fpp
 WHERE fpp.PP_IDENTIFIER in (
 	SELECT asc2.UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid asc2
-) AND fpp.ARRIVAL_DATE >= :arrival_date
+) AND fpp.ARRIVAL_DATE >= '2020-01-01'
 ;
 ''')
 
@@ -217,20 +225,18 @@ class CovidEmergencyEtl(Etl):
 
 	def do_etl(self):
 		inserts = []
+		cnt = 0
 
 		with hic_covid_session() as session:
+			session.execute(f"TRUNCATE TABLE {Emergency.__tablename__};")
 
-			max_date = session.query(func.max(Emergency.arrival_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
-
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_EMERGENCY_SQL, arrival_date=max_date)
+				rs = conn.execute(COVID_EMERGENCY_SQL)
 				for row in rs:
-					v = session.query(Emergency).filter_by(visitid=row['visitid']).one_or_none()
-					if v is None:
-						v = Emergency(
-							visitid=row['visitid'],
-						)
+					v = Emergency(
+						visitid=row['visitid'],
+					)
 
 					v.uhl_system_number=row['PP_IDENTIFIER']
 					v.arrival_datetime=self._date_and_time(row['ARRIVAL_DATE'], row['ARRIVAL_TIME'])
@@ -243,6 +249,13 @@ class CovidEmergencyEtl(Etl):
 					v.complaint_text=row['PP_PRESENTING_PROBLEM']
 
 					inserts.append(v)
+					cnt += 1
+
+					if cnt % 1000 == 0:
+						logging.info(f"Saving Emergency batch. Total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -296,7 +309,7 @@ JOIN DWREPO.dbo.MF_SPECIALTY spec
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > :admission_datetime
+) AND a.ADMISSION_DATE_TIME > '2020-01-01'
 ORDER BY p.SYSTEM_NUMBER, a.ID, ce.EPISODE_NUMBER
 ;
 ''')
@@ -308,19 +321,18 @@ class CovidEpisodeEtl(Etl):
 
 	def do_etl(self):
 		inserts = []
+		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Episode.admission_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
-			
+			session.execute(f"TRUNCATE TABLE {Episode.__tablename__};")
+
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_EPISODE_SQL, admission_datetime=max_date)
+				rs = conn.execute(COVID_EPISODE_SQL)
 				for row in rs:
-					v = session.query(Episode).filter_by(episode_id=row['episode_id']).one_or_none()
-					if v is None:
-						v = Episode(
-							episode_id=row['episode_id'],
-						)
+					v = Episode(
+						episode_id=row['episode_id'],
+					)
 
 					v.spell_id=row['spell_id']
 					v.uhl_system_number=row['uhl_system_number']
@@ -337,6 +349,13 @@ class CovidEpisodeEtl(Etl):
 					v.treatment_function_name=row['treatment_function_name']
 
 					inserts.append(v)
+					cnt += 1
+
+					if cnt % 1000 == 0:
+						logging.info(f"Saving Episode batch. Total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -365,7 +384,7 @@ LEFT JOIN DWREPO.dbo.MF_DIAGNOSIS mf_d
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > :admission_datetime
+) AND a.ADMISSION_DATE_TIME > '2020-01-01'
 ;
 ''')
 
@@ -379,17 +398,15 @@ class CovidDiagnosisEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Diagnosis.admission_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE {Diagnosis.__tablename__};")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_DIAGNOSIS_SQL, admission_datetime=max_date)
+				rs = conn.execute(COVID_DIAGNOSIS_SQL)
 				for row in rs:
-					v = session.query(Diagnosis).filter_by(diagnosis_id=row['diagnosis_id']).one_or_none()
-					if v is None:
-						v = Diagnosis(
-							diagnosis_id=row['diagnosis_id'],
-						)
+					v = Diagnosis(
+						diagnosis_id=row['diagnosis_id'],
+					)
 
 					v.spell_id=row['spell_id']
 					v.episode_id=row['episode_id']
@@ -403,7 +420,7 @@ class CovidDiagnosisEtl(Etl):
 					cnt += 1
 
 					if cnt % 1000 == 0:
-						logging.info(f"Saving diagnosis batch. Total = {cnt}")
+						logging.info(f"Saving Diagnosis batch. Total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
 						session.commit()
@@ -435,7 +452,7 @@ LEFT JOIN DWREPO.dbo.MF_OPCS4 opcs
 WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
-) AND a.ADMISSION_DATE_TIME > :admission_datetime
+) AND a.ADMISSION_DATE_TIME > '2020-01-01'
 ;
 ''')
 
@@ -449,17 +466,15 @@ class CovidProcedureEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Procedure.admission_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{Procedure.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_PROCEDURE_SQL, admission_datetime=max_date)
+				rs = conn.execute(COVID_PROCEDURE_SQL)
 				for row in rs:
-					v = session.query(Procedure).filter_by(procedure_id=row['procedure_id']).one_or_none()
-					if v is None:
-						v = Procedure(
-							procedure_id=row['procedure_id'],
-						)
+					v = Procedure(
+						procedure_id=row['procedure_id'],
+					)
 
 					v.spell_id=row['spell_id']
 					v.episode_id=row['episode_id']
@@ -473,7 +488,7 @@ class CovidProcedureEtl(Etl):
 					cnt += 1
 
 					if cnt % 1000 == 0:
-						logging.info(f"Saving procedure batch.  total = {cnt}")
+						logging.info(f"Saving Procedure batch.  total = {cnt}")
 						session.add_all(inserts)
 						inserts = []
 						session.commit()
@@ -505,7 +520,6 @@ WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
-  AND a.admission_datetime > :transfer_datetime
 
 UNION ALL
 
@@ -533,7 +547,6 @@ WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
-  AND a.admission_datetime > :transfer_datetime
 
 UNION ALL
   
@@ -559,7 +572,6 @@ WHERE p.SYSTEM_NUMBER IN (
 	SELECT UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid
 ) AND a.ADMISSION_DATE_TIME > '01-Jan-2020'
-  AND a.admission_datetime > :transfer_datetime
 ;
 ''')
 
@@ -573,17 +585,15 @@ class CovidTransferEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Transfer.transfer_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{Transfer.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_TRANSFERS_SQL, transfer_datetime=max_date)
+				rs = conn.execute(COVID_TRANSFERS_SQL)
 				for row in rs:
-					v = session.query(Transfer).filter_by(transfer_id=row['transfer_id'], transfer_type=row['transfer_type']).one_or_none()
-					if v is None:
-						v = Transfer(
-							transfer_id=row['transfer_id'],
-						)
+					v = Transfer(
+						transfer_id=row['transfer_id'],
+					)
 
 					v.spell_id=row['spell_id']
 					v.transfer_type=row['transfer_type']
@@ -646,7 +656,7 @@ WHERE p.Hospital_Number IN (
 			T.Result_Suppressed_Flag = 'N'
 		OR  T.Result_Suppressed_Flag IS NULL
 	)
-	AND r.WHO_RECEIVE_DATE_TIME >= :receive_datetime
+	AND r.WHO_RECEIVE_DATE_TIME >= '2020-01-01'
 ;
 ''')
 
@@ -660,17 +670,15 @@ class CovidBloodsEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(BloodTest.receive_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{BloodTest.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_BLOODS_SQL, receive_datetime=max_date)
+				rs = conn.execute(COVID_BLOODS_SQL)
 				for row in rs:
-					v = session.query(BloodTest).filter_by(test_id=row['test_id']).one_or_none()
-					if v is None:
-						v = BloodTest(
-							test_id=row['test_id'],
-						)
+					v = BloodTest(
+						test_id=row['test_id'],
+					)
 
 					v.uhl_system_number=row['uhl_system_number']
 					v.test_code=row['test_code']
@@ -740,7 +748,7 @@ LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_MICRO_WHO tc
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
 WHERE
-	r.WHO_RECEIVE_DATE_TIME >= :sample_received_date_time
+	r.WHO_RECEIVE_DATE_TIME >= '2020-01-01'
 	AND	p.Hospital_Number IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
@@ -758,36 +766,35 @@ class CovidMicrobiologyEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(MicrobiologyTest.sample_received_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{MicrobiologyTest.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_MICROBIOLOGY_SQL, sample_received_date_time=max_date)
+				rs = conn.execute(COVID_MICROBIOLOGY_SQL)
 				for row in rs:
-					if session.query(MicrobiologyTest).filter_by(test_id=row['test_id']).count() == 0:
-						v = MicrobiologyTest(
-							uhl_system_number=row['uhl_system_number'],
-							test_id=row['test_id'],
-							order_code=row['order_code'],
-							order_name=row['order_name'],
-							test_code=row['test_code'],
-							test_name=row['test_name'],
-							organism=row['organism'],
-							result=row['test_result'],
-							sample_collected_datetime=row['sample_collected_date_time'],
-							sample_received_datetime=row['sample_received_date_time'],
-							result_datetime=row['result_datetime'],
-							specimen_site=row['specimen_site'],
-						)
+					v = MicrobiologyTest(
+						uhl_system_number=row['uhl_system_number'],
+						test_id=row['test_id'],
+						order_code=row['order_code'],
+						order_name=row['order_name'],
+						test_code=row['test_code'],
+						test_name=row['test_name'],
+						organism=row['organism'],
+						result=row['test_result'],
+						sample_collected_datetime=row['sample_collected_date_time'],
+						sample_received_datetime=row['sample_received_date_time'],
+						result_datetime=row['result_datetime'],
+						specimen_site=row['specimen_site'],
+					)
 
-						inserts.append(v)
-						cnt += 1
+					inserts.append(v)
+					cnt += 1
 
-						if cnt % 1000 == 0:
-							logging.info(f"Saving Test batch.  total = {cnt}")
-							session.add_all(inserts)
-							inserts = []
-							session.commit()
+					if cnt % 1000 == 0:
+						logging.info(f"Saving Test batch.  total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -818,7 +825,7 @@ LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_FREQUENCY_WHO freq
 	ON freq.CODE = d.frequency
 LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO route
 	ON route.reference = d.roa
-WHERE m.createdOn > :ordered_datetime
+WHERE m.createdOn > '2020-01-01'
 	AND p.externalId IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
@@ -836,36 +843,35 @@ class CovidPrescribingEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Prescribing.ordered_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{Prescribing.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_PRESCRIBING_SQL, ordered_datetime=max_date)
+				rs = conn.execute(COVID_PRESCRIBING_SQL)
 				for row in rs:
-					if session.query(Prescribing).filter_by(order_id=row['order_id']).count() == 0:
-						v = Prescribing(
-							uhl_system_number=row['uhl_system_number'],
-							order_id=row['order_id'],
-							method_name=row['method_name'],
-							order_type=row['order_type'],
-							medication_name=row['medication_name'],
-							min_dose=row['min_dose'],
-							max_does=row['max_dose'],
-							frequency=row['frequency'],
-							form=['form'],
-							does_units=row['dose_units'],
-							route=row['route'],
-							ordered_datetime=row['ordered_datetime'],
-						)
+					v = Prescribing(
+						uhl_system_number=row['uhl_system_number'],
+						order_id=row['order_id'],
+						method_name=row['method_name'],
+						order_type=row['order_type'],
+						medication_name=row['medication_name'],
+						min_dose=row['min_dose'],
+						max_does=row['max_dose'],
+						frequency=row['frequency'],
+						form=['form'],
+						does_units=row['dose_units'],
+						route=row['route'],
+						ordered_datetime=row['ordered_datetime'],
+					)
 
-						inserts.append(v)
-						cnt += 1
+					inserts.append(v)
+					cnt += 1
 
-						if cnt % 1000 == 0:
-							logging.info(f"Saving medication.  total = {cnt}")
-							session.add_all(inserts)
-							inserts = []
-							session.commit()
+					if cnt % 1000 == 0:
+						logging.info(f"Saving medication.  total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -894,7 +900,7 @@ LEFT JOIN DWEPMA.dbo.MF_DOSAGE_ASSIST_ROUTE_OF_ADMINISTRATION_WHO roa
 WHERE p.externalId IN (
 		SELECT asc2.UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid asc2
-	) AND a.eventDateTime > :administration_datetime
+	) AND a.eventDateTime > '2020-01-01'
 ORDER BY a.eventDateTime
 ;
 ''')
@@ -909,33 +915,32 @@ class CovidAdministrationEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Administration.administration_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{Administration.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_ADMINISTRATION_SQL, administration_datetime=max_date)
+				rs = conn.execute(COVID_ADMINISTRATION_SQL)
 				for row in rs:
-					if session.query(Administration).filter_by(administration_id=row['administration_id']).count() == 0:
-						v = Administration(
-							uhl_system_number=row['uhl_system_number'],
-							administration_id=row['administration_id'],
-							administration_datetime=row['administration_datetime'],
-							medication_name=row['medication_name'],
-							dose_id=row['dose_id'],
-							dose=row['dose'],
-							dose_unit=row['dose_unit'],
-							form_name=row['form_name'],
-							route_name=row['route_name'],
-						)
+					v = Administration(
+						uhl_system_number=row['uhl_system_number'],
+						administration_id=row['administration_id'],
+						administration_datetime=row['administration_datetime'],
+						medication_name=row['medication_name'],
+						dose_id=row['dose_id'],
+						dose=row['dose'],
+						dose_unit=row['dose_unit'],
+						form_name=row['form_name'],
+						route_name=row['route_name'],
+					)
 
-						inserts.append(v)
-						cnt += 1
+					inserts.append(v)
+					cnt += 1
 
-						if cnt % 1000 == 0:
-							logging.info(f"Saving administration.  total = {cnt}")
-							session.add_all(inserts)
-							inserts = []
-							session.commit()
+					if cnt % 1000 == 0:
+						logging.info(f"Saving administration.  total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -947,7 +952,7 @@ FROM DWNERVECENTRE.dbo.ObsExport oe
 WHERE [System Number > Patient ID] IN (
 	SELECT asc2.UHL_System_Number
 	FROM DWBRICCS.dbo.all_suspected_covid asc2
-) AND oe.Timestamp >= :observation_datetime
+) AND oe.Timestamp >= '2020-01-01'
 ORDER BY  oe.Timestamp
 ;
 ''')
@@ -962,11 +967,11 @@ class CovidObservationEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Observation.observation_datetime)).scalar() or '01-Jan-2020'
-			max_obs_id = int(session.query(func.max(Observation.observation_id)).scalar() or 0)
+			session.execute(f"TRUNCATE TABLE `{Observation.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_OBSERVATION_SQL, observation_datetime=max_date)
+				rs = conn.execute(COVID_OBSERVATION_SQL)
 
 				observation_names = [c[:-4] for c in rs.keys() if c.lower().endswith('_ews') and c[:-4] in rs.keys()]
 				ews_names = {c[:-4]: c for c in rs.keys() if c.lower().endswith('_ews')}
@@ -979,10 +984,6 @@ class CovidObservationEtl(Etl):
 					observation_id = row['ObsId']
 					uhl_system_number = row['System Number > Patient ID']
 					observation_datetime = row['Timestamp']
-
-					if observation_id <= max_obs_id:
-						if session.query(Observation).filter_by(observation_id=observation_id).count() > 0:
-							continue
 
 					for o, ews, units in observations:
 						if row[o] is not None or row[ews] is not None:
@@ -1054,41 +1055,40 @@ class CovidClincalCarePeriodEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(CriticalCarePeriod.start_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{CriticalCarePeriod.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_CLINICAL_CARE_PERIOD_SQL, start_datetime=max_date)
+				rs = conn.execute(COVID_CLINICAL_CARE_PERIOD_SQL)
 				for row in rs:
-					if session.query(CriticalCarePeriod).filter_by(ccp_id=row['ccp_id']).count() == 0:
-						v = CriticalCarePeriod(
-							uhl_system_number=row['uhl_system_number'],
-							ccp_id=row['ccp_id'],
-							local_identifier=row['CCP_LOCAL_IDENTIFIER'],
-							treatment_function_code=row['treatment_function_code'],
-							treatment_function_name=row['treatment_function_name'],
-							start_datetime=row['CCP_START_DATE_TIME'],
-							basic_respiratory_support_days=row['BASIC_RESPIRATORY_SUPPORT_DAYS'],
-							advanced_respiratory_support_days=row['ADVANCED_RESPIRATORY_SUPPORT_DAYS'],
-							basic_cardiovascular_support_days=row['BASIC_CARDIOVASCULAR_SUPPORT_DAYS'],
-							advanced_cardiovascular_support_days=row['ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS'],
-							renal_support_days=row['RENAL_SUPPORT_DAYS'],
-							neurological_support_days=row['NEUROLOGICAL_SUPPORT_DAYS'],
-							dermatological_support_days=row['DERMATOLOGICAL_SUPPORT_DAYS'],
-							liver_support_days=row['LIVER_SUPPORT_DAYS'],
-							critical_care_level_2_days=row['CRITICAL_CARE_LEVEL_2_DAYS'],
-							critical_care_level_3_days=row['CRITICAL_CARE_LEVEL_3_DAYS'],
-							discharge_datetime=row['CCP_END_DATE_TIME'],
-						)
+					v = CriticalCarePeriod(
+						uhl_system_number=row['uhl_system_number'],
+						ccp_id=row['ccp_id'],
+						local_identifier=row['CCP_LOCAL_IDENTIFIER'],
+						treatment_function_code=row['treatment_function_code'],
+						treatment_function_name=row['treatment_function_name'],
+						start_datetime=row['CCP_START_DATE_TIME'],
+						basic_respiratory_support_days=row['BASIC_RESPIRATORY_SUPPORT_DAYS'],
+						advanced_respiratory_support_days=row['ADVANCED_RESPIRATORY_SUPPORT_DAYS'],
+						basic_cardiovascular_support_days=row['BASIC_CARDIOVASCULAR_SUPPORT_DAYS'],
+						advanced_cardiovascular_support_days=row['ADVANCED_CARDIOVASCULAR_SUPPORT_DAYS'],
+						renal_support_days=row['RENAL_SUPPORT_DAYS'],
+						neurological_support_days=row['NEUROLOGICAL_SUPPORT_DAYS'],
+						dermatological_support_days=row['DERMATOLOGICAL_SUPPORT_DAYS'],
+						liver_support_days=row['LIVER_SUPPORT_DAYS'],
+						critical_care_level_2_days=row['CRITICAL_CARE_LEVEL_2_DAYS'],
+						critical_care_level_3_days=row['CRITICAL_CARE_LEVEL_3_DAYS'],
+						discharge_datetime=row['CCP_END_DATE_TIME'],
+					)
 
-						inserts.append(v)
-						cnt += 1
+					inserts.append(v)
+					cnt += 1
 
-						if cnt % 1000 == 0:
-							logging.info(f"Saving clinical care period.  total = {cnt}")
-							session.add_all(inserts)
-							inserts = []
-							session.commit()
+					if cnt % 1000 == 0:
+						logging.info(f"Saving clinical care period.  total = {cnt}")
+						session.add_all(inserts)
+						inserts = []
+						session.commit()
 
 			session.add_all(inserts)
 			session.commit()
@@ -1116,7 +1116,7 @@ JOIN DWRAD.dbo.CRIS_HIS_TBL his
 	ON his.PASLINK_KEY = o.PASLINK_KEY
 JOIN DWRAD.dbo.MF_CRISMODL modality
 	ON modality.CODE = exam_cd.MODALITY
-WHERE ev.Request_Date_Time >= :request_datetime
+WHERE ev.Request_Date_Time >= '2020-01-01'
 	AND ev.Request_Date_Time < :current_datetime
 	AND his.HIS_ID in (
 		SELECT asc2.UHL_System_Number
@@ -1135,33 +1135,32 @@ class OrdersEtl(Etl):
 		cnt = 0
 
 		with hic_covid_session() as session:
-			max_date = session.query(func.max(Order.request_datetime)).scalar()
-			max_date = max_date or '01-Jan-2020'
+			session.execute(f"TRUNCATE TABLE `{Order.__tablename__}`;")
 
+		with hic_covid_session() as session:
 			with uhl_dwh_databases_engine() as conn:
-				rs = conn.execute(COVID_ORDERS_SQL, request_datetime=max_date, current_datetime=datetime.utcnow())
+				rs = conn.execute(COVID_ORDERS_SQL, current_datetime=datetime.utcnow())
 				for row in rs:
-					if session.query(Order).filter_by(order_id=row['ORDER_ID']).count() == 0:
-						v = Order(
-							uhl_system_number=row['uhl_system_number'],
-							order_id=row['ORDER_ID'],
-							order_key=row['ORDER_KEY'],
-							scheduled_datetime=row['SCHEDULE_DATE'],
-							request_datetime=row['Request_Date_Time'],
-							examination_code=row['examination_code'],
-							examination_description=row['examination_description'],
-							snomed_code=row['snomed_code'],
-							modality=row['MODALITY'],
-						)
+					v = Order(
+						uhl_system_number=row['uhl_system_number'],
+						order_id=row['ORDER_ID'],
+						order_key=row['ORDER_KEY'],
+						scheduled_datetime=row['SCHEDULE_DATE'],
+						request_datetime=row['Request_Date_Time'],
+						examination_code=row['examination_code'],
+						examination_description=row['examination_description'],
+						snomed_code=row['snomed_code'],
+						modality=row['MODALITY'],
+					)
 
-						inserts.append(v)
-						cnt += 1
+					inserts.append(v)
+					cnt += 1
 
-						if cnt % 1000 == 0:
-							logging.info(f"Saving order.  total = {cnt}")
-							session.add_all(inserts)
-							session.commit()
-							inserts = []
+					if cnt % 1000 == 0:
+						logging.info(f"Saving Order.  total = {cnt}")
+						session.add_all(inserts)
+						session.commit()
+						inserts = []
 
 			session.add_all(inserts)
 			session.commit()

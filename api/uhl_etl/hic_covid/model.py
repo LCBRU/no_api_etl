@@ -262,6 +262,15 @@ class Order(Base):
 
 
 @contextmanager
+def hic_covid_engine():
+    try:
+        engine = create_engine(HIC_COVID_CONNECTION_STRING, echo=DATABASE_ECHO)
+        yield engine
+    finally:
+        engine.dispose
+
+
+@contextmanager
 def hic_covid_session():
     try:
         engine = create_engine(HIC_COVID_CONNECTION_STRING, echo=DATABASE_ECHO)
