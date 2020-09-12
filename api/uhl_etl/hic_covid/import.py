@@ -61,7 +61,7 @@ COVID_DEMOGRAPHICS_SQL = '''
 
 class CovidParticipantsEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -151,7 +151,7 @@ WHERE
 
 class CovidVirologyEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -221,7 +221,7 @@ WHERE fpp.PP_IDENTIFIER in (
 
 class CovidEmergencyEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -317,7 +317,7 @@ ORDER BY p.SYSTEM_NUMBER, a.ID, ce.EPISODE_NUMBER
 
 class CovidEpisodeEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -391,7 +391,7 @@ WHERE p.SYSTEM_NUMBER IN (
 
 class CovidDiagnosisEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -459,7 +459,7 @@ WHERE p.SYSTEM_NUMBER IN (
 
 class CovidProcedureEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -578,7 +578,7 @@ WHERE p.SYSTEM_NUMBER IN (
 
 class CovidTransferEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -663,7 +663,7 @@ WHERE p.Hospital_Number IN (
 
 class CovidBloodsEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -759,7 +759,7 @@ WHERE
 
 class CovidMicrobiologyEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -836,7 +836,7 @@ WHERE m.createdOn > '2020-01-01'
 
 class CovidPrescribingEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -908,7 +908,7 @@ ORDER BY a.eventDateTime
 
 class CovidAdministrationEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -960,7 +960,7 @@ ORDER BY  oe.Timestamp
 
 class CovidObservationEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -1048,7 +1048,7 @@ WHERE ccp.CCP_START_DATE >= '01 Jan 2020'
 
 class CovidClincalCarePeriodEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
@@ -1128,7 +1128,7 @@ WHERE ev.Request_Date_Time >= '2020-01-01'
 
 class OrdersEtl(Etl):
 	def __init__(self):
-		super().__init__(schedule=Schedule.daily_9_30pm)
+		super().__init__(schedule=Schedule.on_saturday_mornings)
 
 	def do_etl(self):
 		inserts = []
