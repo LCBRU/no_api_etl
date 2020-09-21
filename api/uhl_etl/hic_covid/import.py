@@ -33,9 +33,10 @@ from api.uhl_etl.hic_covid.model import (
 COVID_DEMOGRAPHICS_SQL = '''
     SELECT
         replace(p.NHS_NUMBER,' ','') AS nhs_number,
-        p.SYSTEM_NUMBER AS uhl_system_number,
+        cv.uhl_system_number AS uhl_system_number,
         p.CURRENT_GP_PRACTICE AS gp_practice,
         DWBRICCS.[dbo].[GetAgeAtDate](MIN(p.PATIENT_DATE_OF_BIRTH), MIN(cv.dateadded)) AS age,
+        p.PATIENT_DATE_OF_BIRTH AS date_of_birth,
         p.DATE_OF_DEATH AS date_of_death,
         p.Post_Code AS postcode,
         CASE p.Sex
@@ -46,16 +47,19 @@ COVID_DEMOGRAPHICS_SQL = '''
         END sex,
         p.ETHNIC_ORIGIN_CODE ethnic_category
     FROM DWBRICCS.dbo.all_suspected_covid cv
-    JOIN [DWREPO].[dbo].[PATIENT] p
+    LEFT JOIN [DWREPO].[dbo].[PATIENT] p
         ON p.SYSTEM_NUMBER = cv.uhl_system_number
+    WHERE cv.uhl_system_number IS NOT NULL
     GROUP BY
         p.NHS_NUMBER,
-        p.SYSTEM_NUMBER,
+        cv.uhl_system_number,
         p.CURRENT_GP_PRACTICE,
+        p.patient_date_of_birth,
         p.DATE_OF_DEATH,
         p.Post_Code,
         p.Sex,
         p.ETHNIC_ORIGIN_CODE
+;
 '''
 
 
@@ -83,6 +87,7 @@ class CovidParticipantsEtl(Etl):
 					d.nhs_number = row['nhs_number']
 					d.gp_practice = row['gp_practice']
 					d.age = row['age']
+					d.date_of_birth = row['date_of_birth']
 					d.date_of_death = row['date_of_death']
 					d.postcode = row['postcode']
 					d.sex=row['sex']
@@ -141,10 +146,15 @@ LEFT OUTER JOIN DWPATH.dbo.MF_QUANTITY_CODES q
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
 WHERE
-(
-	t.Test_code IN  ( 'VCOV', 'VCOV3', 'VCOV4', 'VCOV5' )
-	OR (t.Test_code = 'VBIR'AND org.Organism  LIKE  '%CoV%')
-) 	AND r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+	(
+			t.Test_code IN  ( 'VCOV', 'VCOV3', 'VCOV4', 'VCOV5' )
+		OR (t.Test_code = 'VBIR'AND org.Organism  LIKE  '%CoV%')
+	)
+	AND r.WHO_COLLECTION_DATE_TIME >= '01/01/2020 00:0:0'
+	AND p.Hospital_Number in (
+		SELECT asc2.UHL_System_Number
+		FROM DWBRICCS.dbo.all_suspected_covid asc2
+	)
 ;
 ''')
 
@@ -174,7 +184,7 @@ class CovidVirologyEtl(Etl):
 						test_name=row['test_name'],
 						organism=row['organism'],
 						test_result=row['test_result'],
-						sample_collected_date_time=['sample_collected_date_time'],
+						sample_collected_date_time=row['sample_collected_date_time'],
 						sample_received_date_time=row['sample_received_date_time'],
 						sample_available_date_time=row['sample_available_date_time'],
 						order_status=row['order_status'],
@@ -645,14 +655,13 @@ INNER JOIN	DWPATH.dbo.ORDERS_FILE AS o
 	ON r.Order_No = o.Order_Number
 INNER JOIN	DWPATH.dbo.REQUEST_PATIENT_DETAILS AS p
 	ON o.D_Level_Pointer = p.Request_Patient_Details
+JOIN DWBRICCS.dbo.all_suspected_covid asc2
+	ON asc2.UHL_System_Number = p.Hospital_Number
 LEFT OUTER JOIN DWPATH.dbo.MF_TEST_CODES_HAEM_WHO tc
 	ON t.Test_Code_Key=tc.Test_Codes_Row_ID
 LEFT OUTER JOIN DWPATH.dbo.REQUEST_SOURCE_DETAILS s
 	ON o.C_Level_Pointer = s.Request_Source_Details
-WHERE p.Hospital_Number IN (
-		SELECT asc2.UHL_System_Number
-		FROM DWBRICCS.dbo.all_suspected_covid asc2
-	) AND (
+WHERE (
 			T.Result_Suppressed_Flag = 'N'
 		OR  T.Result_Suppressed_Flag IS NULL
 	)
@@ -1041,7 +1050,7 @@ WHERE ccp.CCP_START_DATE >= '01 Jan 2020'
 	AND p.SYSTEM_NUMBER IN (
 		SELECT UHL_System_Number
 		FROM DWBRICCS.dbo.all_suspected_covid
-	) AND ccp.CCP_START_DATE_TIME >= :start_datetime
+	) AND ccp.CCP_START_DATE_TIME >= '01 Jan 2020'
 ;
 ''')
 

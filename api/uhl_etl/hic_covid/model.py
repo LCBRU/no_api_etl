@@ -3,6 +3,7 @@
 from sqlalchemy import (
     Column,
     Integer,
+    BigInteger,
     String,
     Date,
     DateTime,
@@ -36,6 +37,7 @@ class Demographics(Base):
     gp_practice = Column(String)
     age = Column(Integer)
     date_of_death = Column(Date)
+    date_of_birth = Column(Date)
     postcode = Column(String)
     sex = Column(Integer)
     ethnic_category = Column(String)
@@ -68,11 +70,11 @@ class Emergency(Base):
     uhl_system_number = Column(String)
     arrival_datetime = Column(DateTime)
     departure_datetime = Column(DateTime)
-    arrival_mode_code = Column(Integer)
+    arrival_mode_code = Column(BigInteger)
     arrival_mode_text = Column(String)
-    departure_code = Column(Integer)
+    departure_code = Column(BigInteger)
     departure_text = Column(String)
-    complaint_code = Column(Integer)
+    complaint_code = Column(BigInteger)
     complaint_text = Column(String)
 
 
