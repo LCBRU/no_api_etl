@@ -200,11 +200,12 @@ class SeleniumEtl(Etl):
         pass
 
 def get_concrete_etls(cls=None):
-
     if (cls is None):
         cls = Etl
 
-    result = [sub() for sub in cls.__subclasses__()
+    logging.info(cls.__name__)
+
+    result = [sub for sub in cls.__subclasses__()
               if len(sub.__subclasses__()) == 0 and
               # If the constructor requires parameters
               # other than self (i.e., it has more than 1
@@ -222,7 +223,7 @@ def schedule_etls():
     reports = get_concrete_etls()
 
     for r in reports:
-        r.schedule()
+        r().schedule()
 
     logging.info("---- {} reports scheduled ----".format(len(reports)))
 
@@ -240,12 +241,12 @@ def run_etls(etl_name, exclude):
 
     for e in etls:
 
-        if type(e).__name__.lower() in exclude:
+        if e.__name__.lower() in exclude:
             continue
 
-        if type(e).__name__[:len(etl_name)].lower() == etl_name.lower():
+        if e.__name__[:len(etl_name)].lower() == etl_name.lower():
             try:
-                e.run()
+                e().run()
             except KeyboardInterrupt:
                 logging.info('Schedule stopped')
                 return

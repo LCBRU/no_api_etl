@@ -83,10 +83,10 @@ class MysqlToMssqlStep(EtlStep):
         foreign_keys_file = NamedTemporaryFile(mode='w+t')
 
         try:
-            self.dump_ddl(creates_file, indexes_file, foreign_keys_file)
+            # self.dump_ddl(creates_file, indexes_file, foreign_keys_file)
             self.re_create_database(creates_file)
-            self.transfer_data_using_inserts()
-            self.create_constraints(indexes_file, foreign_keys_file)
+            # self.transfer_data_using_inserts()
+            # self.create_constraints(indexes_file, foreign_keys_file)
 
         finally:
             creates_file.close()
@@ -98,29 +98,29 @@ class MysqlToMssqlStep(EtlStep):
 
         with brc_dwh_cursor() as conn:
             conn.execute(SQL_DROP_DB.format(self.destination_database_name))
-            conn.execute(SQL_CREATE_DB.format(self.destination_database_name))
-            conn.execute(SQL_SIMPLE_RECOVERY.format(self.destination_database_name))
+        #     conn.execute(SQL_CREATE_DB.format(self.destination_database_name))
+        #     conn.execute(SQL_SIMPLE_RECOVERY.format(self.destination_database_name))
 
-        with brc_dwh_cursor(database=self.destination_database_name) as conn:
-            try:
-                creates_file.seek(0)
-                ddl = creates_file.read()
+        # with brc_dwh_cursor(database=self.destination_database_name) as conn:
+        #     try:
+        #         creates_file.seek(0)
+        #         ddl = creates_file.read()
 
-                self.log(
-                    message='Recreating database',
-                    attachment=ddl,
-                    log_level='INFO',
-                )
+        #         self.log(
+        #             message='Recreating database',
+        #             attachment=ddl,
+        #             log_level='INFO',
+        #         )
 
-                conn.execute(ddl)
+        #         conn.execute(ddl)
 
-            except:
-                self.log(
-                    message='Error running creating database',
-                    attachment=ddl,
-                    log_level='ERROR',
-                )
-                raise
+        #     except:
+        #         self.log(
+        #             message='Error running creating database',
+        #             attachment=ddl,
+        #             log_level='ERROR',
+        #         )
+        #         raise
 
         self.log("Creating destination database '{}' COMPLETED".format(self.destination_database_name))
 
@@ -584,3 +584,14 @@ class CombinedDataLakeEtl(Etl):
             ]:
                 step = step_class()
                 executor.submit(step.run)
+
+
+class DataLake_IdentityStep_Etl(Etl):
+
+    def __init__(self):
+        super().__init__(schedule=Schedule.never)
+
+    def do_etl(self):
+        d = DataLake_IdentityStep()
+        d.run()
+
