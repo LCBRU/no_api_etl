@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from api.emailing import email_error
 import re
 import subprocess
 import pyodbc
@@ -194,6 +195,7 @@ class MysqlToMssqlStep(EtlStep):
 
                 BATCH_SIZE = 500
                 total_records = 0
+                inserts = ''
 
                 for i, chunk in enumerate(grouper_it(BATCH_SIZE, inserts_file), 1):
                     try:
@@ -238,6 +240,7 @@ class MysqlToMssqlStep(EtlStep):
                             attachment=inserts,
                             log_level='ERROR',
                         )
+                        email_error(self._name, inserts)
                         raise
             finally:
                 inserts_file.close()
