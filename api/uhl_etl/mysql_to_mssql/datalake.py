@@ -86,8 +86,8 @@ class MysqlToMssqlStep(EtlStep):
         try:
             self.dump_ddl(creates_file, indexes_file, foreign_keys_file)
             self.re_create_database(creates_file)
-            self.transfer_data_using_inserts()
-            self.create_constraints(indexes_file, foreign_keys_file)
+            # self.transfer_data_using_inserts()
+            # self.create_constraints(indexes_file, foreign_keys_file)
 
         finally:
             creates_file.close()
