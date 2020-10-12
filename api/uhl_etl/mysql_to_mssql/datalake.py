@@ -103,6 +103,8 @@ class MysqlToMssqlStep(EtlStep):
             conn.execute(SQL_SIMPLE_RECOVERY.format(self.destination_database_name))
 
         with brc_dwh_cursor(database=self.destination_database_name) as conn:
+            ddl = ''
+
             try:
                 creates_file.seek(0)
                 ddl = creates_file.read()
@@ -121,6 +123,7 @@ class MysqlToMssqlStep(EtlStep):
                     attachment=ddl,
                     log_level='ERROR',
                 )
+                email_error(self._name, ddl)
                 raise
 
         self.log("Creating destination database '{}' COMPLETED".format(self.destination_database_name))
