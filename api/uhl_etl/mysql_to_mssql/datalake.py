@@ -514,12 +514,22 @@ class DataLake_RedCapBriccsUoLSurveyStep(DataLake_RedCapStep):
 
 class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(database_name='redcap_genvasc')
+        super().__init__(
+            database_name='redcap_genvasc',
+            tables_to_ignore=[
+                'redcap_external_modules_log_parameters',
+            ],
+        )
 
 
 class DataLake_RedCapNationalStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(database_name='redcap_national')
+        super().__init__(
+            database_name='redcap_national',
+            tables_to_ignore=[
+                'redcap_external_modules_log_parameters',
+            ],
+        )
 
 
 class DataLake_OpenSpecimenStep(DataLakeStep):
