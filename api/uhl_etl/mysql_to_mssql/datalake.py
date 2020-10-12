@@ -509,6 +509,16 @@ class DataLake_RedCapBriccsUoLSurveyStep(DataLake_RedCapStep):
         super().__init__(database_name='uol_survey_redcap')
 
 
+class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
+    def __init__(self):
+        super().__init__(database_name='redcap_genvasc')
+
+
+class DataLake_RedCapNationalStep(DataLake_RedCapStep):
+    def __init__(self):
+        super().__init__(database_name='redcap_national')
+
+
 class DataLake_OpenSpecimenStep(DataLakeStep):
     def __init__(self):
         super().__init__(
@@ -584,6 +594,8 @@ class CombinedDataLakeEtl(Etl):
                 DataLake_RedCapBriccsExtStep,
                 DataLake_RedCapBriccsUoLCrfStep,
                 DataLake_RedCapBriccsUoLSurveyStep,
+                DataLake_RedCapGenvascStep,
+                DataLake_RedCapNationalStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
@@ -598,3 +610,14 @@ class DataLake_IdentityStep_Etl(Etl):
         d = DataLake_IdentityStep()
         d.run()
 
+
+class DataLake_RedvapStep_Etl(Etl):
+
+    def __init__(self):
+        super().__init__(schedule=Schedule.never)
+
+    def do_etl(self):
+        d = DataLake_RedCapGenvascStep()
+        d.run()
+        d = DataLake_RedCapNationalStep()
+        d.run()
