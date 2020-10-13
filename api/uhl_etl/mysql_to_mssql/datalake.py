@@ -491,6 +491,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'access_token',
                 'value',
                 'message',
+                'log_view_id_time_ui_id',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
