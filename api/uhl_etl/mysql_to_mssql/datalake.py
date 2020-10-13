@@ -490,6 +490,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'ss_id_record',
                 'access_token',
                 'value',
+                'message',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
