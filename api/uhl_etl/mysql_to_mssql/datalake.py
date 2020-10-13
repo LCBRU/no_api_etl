@@ -488,6 +488,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'access_code',
                 'access_code_numeral',
                 'ss_id_record',
+                'access_token',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
