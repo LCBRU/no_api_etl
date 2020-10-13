@@ -488,7 +488,10 @@ class DataLake_RedCapStep(DataLakeStep):
                 'access_code',
                 'access_code_numeral',
                 'ss_id_record',
-            ]
+            ],
+            tables_to_ignore=[
+                'redcap_external_modules_log_parameters',
+            ],
         )
 
 
@@ -514,22 +517,12 @@ class DataLake_RedCapBriccsUoLSurveyStep(DataLake_RedCapStep):
 
 class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(
-            database_name='redcap_genvasc',
-            tables_to_ignore=[
-                'redcap_external_modules_log_parameters',
-            ],
-        )
+        super().__init__(database_name='redcap_genvasc')
 
 
 class DataLake_RedCapNationalStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(
-            database_name='redcap_national',
-            tables_to_ignore=[
-                'redcap_external_modules_log_parameters',
-            ],
-        )
+        super().__init__(database_name='redcap_national')
 
 
 class DataLake_OpenSpecimenStep(DataLakeStep):
