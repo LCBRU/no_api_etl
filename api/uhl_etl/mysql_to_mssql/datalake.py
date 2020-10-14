@@ -521,6 +521,11 @@ class DataLake_RedCapBriccsUoLSurveyStep(DataLake_RedCapStep):
         super().__init__(database_name='uol_survey_redcap')
 
 
+class DataLake_RedCapUoLEasyAsStep(DataLake_RedCapStep):
+    def __init__(self):
+        super().__init__(database_name='uol_easyas_redcap')
+
+
 class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
     def __init__(self):
         super().__init__(database_name='redcap_genvasc')
@@ -632,4 +637,6 @@ class DataLake_RedvapStep_Etl(Etl):
         d = DataLake_RedCapGenvascStep()
         d.run()
         d = DataLake_RedCapNationalStep()
+        d.run()
+        d = DataLake_RedCapUoLEasyAsStep()
         d.run()
