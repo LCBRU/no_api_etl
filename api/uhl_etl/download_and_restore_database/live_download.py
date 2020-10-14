@@ -211,3 +211,20 @@ class UoLRedcapSurveyDatabase(DatabaseDownloadAndRestore):
             database_password=ETL_DATABASES_PASSWORD,
             lowercase=False,
         )
+
+
+class UoLRedcapEasyAsDatabase(DatabaseDownloadAndRestore):
+
+    def __init__(self):
+        super().__init__(
+            schedule=Schedule.daily_6pm,
+            url='https://easy-as.lbrc.le.ac.uk/publish/redcap.db',
+            url_username=ETL_DOWNLOAD_USERNAME,
+            url_password=ETL_DOWNLOAD_PASSWORD,
+            decrypt_password=ETL_ENCRYPTION_PASSWORD,
+            destination_database_name='uol_easyas_redcap',
+            database_host=ETL_DATABASES_HOST,
+            database_user=ETL_DATABASES_USERNAME,
+            database_password=ETL_DATABASES_PASSWORD,
+            lowercase=False,
+        )
