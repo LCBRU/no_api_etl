@@ -628,6 +628,16 @@ class DataLake_IdentityStep_Etl(Etl):
         d.run()
 
 
+class DataLake_OpenSpecimen_Etl(Etl):
+
+    def __init__(self):
+        super().__init__(schedule=Schedule.never)
+
+    def do_etl(self):
+        d = DataLake_OpenSpecimenStep()
+        d.run()
+
+
 class DataLake_RedvapStep_Etl(Etl):
 
     def __init__(self):
