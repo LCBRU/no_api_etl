@@ -138,16 +138,24 @@ class DatabaseDownloadAndRestore(Etl):
                 ))
 
     def run_mysql(self, command):
-        return subprocess.run([
-            'mysql',
-            '-h',
-            self.database_host,
-            '-u',
-            self.database_user,
-            '--password={}'.format(self.database_password),
-            '-e',
-            command,
-        ])
+        result = subprocess.run(
+            [
+                'mysql',
+                '-h',
+                self.database_host,
+                '-u',
+                self.database_user,
+                '--password={}'.format(self.database_password),
+                '-e',
+                command,
+            ],
+            capture_output=True,
+        )
+
+        print(result.stdout)
+        print(result.stderr)
+
+        return result
 
     def restore_database(self, input_filename):
         proc = self.run_mysql('USE {};\nSOURCE {}'.format(

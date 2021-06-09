@@ -7,7 +7,6 @@ from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
 from api.environment import (
     ETL_CENTRAL_CONNECTION_STRING,
-    ETL_DATABASES_CONNECTION_STRING,
     DATABASE_ECHO,
     MS_SQL_UHL_DWH_HOST,
     MS_SQL_UHL_DWH_USER,
@@ -38,13 +37,6 @@ def etl_central_session():
         session.close()
     finally:
         engine.dispose
-
-
-@contextmanager
-def etl_databases_engine():
-    engine = create_engine(ETL_DATABASES_CONNECTION_STRING, echo=DATABASE_ECHO)
-    yield engine
-    engine.dispose()
 
 
 @contextmanager

@@ -105,7 +105,7 @@ class EtlStep:
             raise e
         except Exception as e:
             self.log(
-                message=e,
+                message=str(e),
                 attachment=traceback.format_exc(),
                 log_level='ERROR',
             )
