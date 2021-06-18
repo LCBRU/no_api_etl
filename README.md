@@ -11,17 +11,26 @@ from applications using Selenium.
 git clone https://github.com/LCBRU/no_api_etl.git
 ```
 
-2. Install the requirements:
+2. Create and activate a virtual environment:
+
+From within the `no_api_etl` directory, run the commands:
+
+```bash
+python3 -m venv venv
+source ./venv/bin/activate
+```
+
+3. Install the requirements:
 
 Got to the reporter directory
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-3. Set environment:
+4. Set environment:
 
-Copy the file `example.env` to `.env` and fill in appropriate values.
+Copy the file `example.env` to `.env`, amend the file to make it only readable by yourself and fill in appropriate values.
 
 ## Running
 
