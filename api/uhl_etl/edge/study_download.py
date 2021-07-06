@@ -3,45 +3,17 @@
 import datetime
 from bs4 import BeautifulSoup
 from urllib import parse
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as ec
-from selenium.webdriver.common.by import By
 from api.core import SeleniumEtl, Schedule
 from api.database import etl_central_session
 from api.environment import EDGE_BASE_URL
 from api.uhl_etl.edge import login
-from sqlalchemy import Column, Integer, String, Date
-from api.database import Base
-
-
-class EdgeSiteStudy(Base):
-    __tablename__ = 'edge_site_study'
-
-    id = Column(Integer, primary_key=True)
-    project_short_title = Column(String)
-    project_id = Column(Integer)
-    principle_investigator = Column(String)
-    project_type = Column(String)
-    research_theme = Column(String)
-    start_date = Column(Date)
-    project_site_date_open_to_recruitment = Column(Date)
-    project_site_start_date_nhs_permission = Column(Date)
-    end_date = Column(Date)
-    project_site_closed_date = Column(Date)
-    project_site_planned_closing_date = Column(Date)
-    recruitment_end_date = Column(Date)
-    project_site_actual_recruitment_end_date = Column(Date)
-    project_site_planned_recruitment_end_date = Column(Date)
-    recruited_total = Column(Integer)
-    recruited_org = Column(Integer)
-    project_status = Column(String)
-    project_site_target_participants = Column(Integer)
+from lbrc_edge import EdgeSiteStudy
 
 
 class EdgeSiteStudyDownload(SeleniumEtl):
 
     REPORT_FOLDER = 'SharedReports'
-    REPORT = 'No API Study Details Download'
+    REPORT = 'BRC Report (Tara)'
 
     def __init__(self):
         super().__init__(schedule=Schedule.daily_7pm)
@@ -83,25 +55,40 @@ class EdgeSiteStudyDownload(SeleniumEtl):
 
             self.log("Downloading study '{}'".format(self.string_or_none(td[0])))
 
+    
             e = EdgeSiteStudy(
-                project_short_title=self.string_or_none(td[0]),
-                project_id=self.int_or_none(td[1]),
-                principle_investigator=self.string_or_none(td[2]),
-                project_type=self.string_or_none(td[3]),
-                research_theme=self.string_or_none(td[4]),
-                start_date=self.date_or_none(td[5]),
-                project_site_date_open_to_recruitment=self.date_or_none(td[6]),
-                project_site_start_date_nhs_permission=self.date_or_none(td[7]),
-                end_date=self.date_or_none(td[8]),
-                project_site_closed_date=self.date_or_none(td[9]),
-                project_site_planned_closing_date=self.date_or_none(td[10]),
-                recruitment_end_date=self.date_or_none(td[11]),
-                project_site_actual_recruitment_end_date=self.date_or_none(td[12]),
-                project_site_planned_recruitment_end_date=self.date_or_none(td[13]),
-                recruited_total=self.int_or_none(td[14]),
-                recruited_org=self.string_or_none(td[15]),
-                project_status=self.string_or_none(td[16]),
+                project_id=self.int_or_none(td[0]),
+                mrec_number=self.string_or_none(td[1]),
+                iras_number=self.string_or_none(td[2]),
+                project_full_title=self.string_or_none(td[3]),
+                project_short_title=self.string_or_none(td[4]),
+                project_phase=self.string_or_none(td[5]),
+                primary_clinical_management_areas=self.string_or_none(td[6]),
+                project_site_status=self.string_or_none(td[7]),
+                project_status=self.string_or_none(td[8]),
+                project_site_rand_submission_date=self.date_or_none(td[9]),
+                project_site_start_date_nhs_permission=self.date_or_none(td[10]),
+                project_site_date_site_confirmed=self.date_or_none(td[11]),
+                project_site_planned_closing_date=self.date_or_none(td[12]),
+                project_site_closed_date=self.date_or_none(td[13]),
+                project_site_planned_recruitment_end_date=self.date_or_none(td[14]),
+                project_site_actual_recruitment_end_date=self.date_or_none(td[15]),
+                principle_investigator=self.string_or_none(td[16]),
                 project_site_target_participants=self.int_or_none(td[17]),
+                project_site_estimated_annual_target=self.int_or_none(td[18]),
+                recruited_org=self.int_or_none(td[19]),
+                project_site_lead_nurses=self.string_or_none(td[20]),
+                project_site_name=self.string_or_none(td[21]),
+                project_type=self.string_or_none(td[22]),
+                nihr_portfolio_study_id=self.int_or_none(td[23]),
+                pi_orcidid=self.string_or_none(td[24]),
+                is_uhl_lead_centre=self.boolean_or_none(td[25]),
+                lead_centre_name_if_not_uhl=self.boolean_or_none(td[26]),
+                cro_cra_used=self.boolean_or_none(td[27]),
+                name_of_cro_cra_company_used=self.string_or_none(td[28]),
+                study_category=self.string_or_none(td[29]),
+                randomised_name=self.string_or_none(td[30]),
+                name_of_brc_involved=self.string_or_none(td[31]),
             )
 
             result.append(e)
@@ -128,5 +115,14 @@ class EdgeSiteStudyDownload(SeleniumEtl):
         date_string = date_element.get_text().strip()
         if date_string:
             return datetime.datetime.strptime(date_string, "%d/%m/%Y").date()
+        else:
+            return None
+
+    def boolean_or_none(self, boolean_element):
+        boolean_string = boolean_element.get_text().strip().upper()
+        if boolean_string in ['YES', 'TRUE', '1']:
+            return True
+        elif boolean_string in ['NO', 'FALSE', '0']:
+            return False
         else:
             return None
