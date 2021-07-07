@@ -91,7 +91,8 @@ class EdgeSiteStudyDownload(SeleniumEtl):
                 name_of_brc_involved=self.string_or_none(td[31]),
             )
 
-            result.append(e)
+            if (e.primary_clinical_management_areas or '').upper() in ['CARDIOLOGY', 'VASCULAR SERVICES', 'CARDIAC SURGERY']:
+                result.append(e)
 
         self.log("Getting studies: COMPLETED")
 
