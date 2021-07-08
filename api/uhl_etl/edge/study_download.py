@@ -107,7 +107,9 @@ class EdgeSiteStudyDownload(SeleniumEtl):
     def pi_or_none(self, string_element):
         string_element = string_element.get_text().strip()
         if string_element:
-            return ' '.join(reversed(list(filter(lambda x: len(x) > 0, string_element.split(',')))))
+            return ' '.join(reversed(
+                [p.strip() for p in filter(lambda x: len(x) > 0, string_element.split(','))]
+            ))
         else:
             return None
 
