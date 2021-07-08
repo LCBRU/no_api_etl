@@ -55,7 +55,6 @@ class EdgeSiteStudyDownload(SeleniumEtl):
 
             self.log("Downloading study '{}'".format(self.string_or_none(td[0])))
 
-    
             e = EdgeSiteStudy(
                 project_id=self.int_or_none(td[0]),
                 mrec_number=self.string_or_none(td[1]),
@@ -73,7 +72,7 @@ class EdgeSiteStudyDownload(SeleniumEtl):
                 project_site_closed_date=self.date_or_none(td[13]),
                 project_site_planned_recruitment_end_date=self.date_or_none(td[14]),
                 project_site_actual_recruitment_end_date=self.date_or_none(td[15]),
-                principle_investigator=self.string_or_none(td[16]),
+                principal_investigator=self.pi_or_none(td[16]),
                 project_site_target_participants=self.int_or_none(td[17]),
                 project_site_estimated_annual_target=self.int_or_none(td[18]),
                 recruited_org=self.int_or_none(td[19]),
@@ -102,6 +101,13 @@ class EdgeSiteStudyDownload(SeleniumEtl):
         string_element = string_element.get_text().strip()
         if string_element:
             return string_element
+        else:
+            return None
+
+    def pi_or_none(self, string_element):
+        string_element = string_element.get_text().strip()
+        if string_element:
+            return ' '.join(reversed(list(filter(lambda x: len(x) > 0, string_element.split(',')))))
         else:
             return None
 
