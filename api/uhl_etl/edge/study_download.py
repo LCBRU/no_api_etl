@@ -109,7 +109,7 @@ class EdgeSiteStudyDownload(SeleniumEtl):
         if string_element:
             return ' '.join(reversed(
                 [p.strip() for p in filter(lambda x: len(x) > 0, string_element.split(','))]
-            ))
+            )).strip()
         else:
             return None
 
