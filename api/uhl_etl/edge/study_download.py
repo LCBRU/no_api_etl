@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 
+import logging
 import datetime
-from bs4 import BeautifulSoup
 from urllib import parse
+from selenium.webdriver.support.wait import WebDriverWait
 from api.core import SeleniumEtl, Schedule
 from api.database import etl_central_session
 from api.environment import EDGE_BASE_URL
 from api.uhl_etl.edge import login
 from lbrc_edge import EdgeSiteStudy
+from time import sleep
+import csv
+import tempfile
 
 
 class EdgeSiteStudyDownload(SeleniumEtl):
 
-    REPORT_FOLDER = 'SharedReports'
-    REPORT = 'BRC Report (Tara)'
+    REPORT_FOLDER = 'ProjectAttributeReport'
+    REPORT = 'BRC Report (Richard)'
 
     def __init__(self):
         super().__init__(schedule=Schedule.daily_7pm)
@@ -42,93 +46,98 @@ class EdgeSiteStudyDownload(SeleniumEtl):
             self.REPORT_FOLDER,
         ))
 
-        driver.find_element_by_xpath(f'//select/option[text()="{self.REPORT}"]').click()
-        driver.find_element_by_xpath('//input[@type="button" and @value="Submit query"]').click()
-        driver.find_element_by_xpath('//div[@id="results"]/table')
+        driver.find_element_by_css_selector('input[value="Load query"]').click()
+        sleep(5)
+        driver.find_element_by_xpath(f'//a[@name="linkLoadQuery" and text()="{self.REPORT}"]').click()
+        sleep(5)
+        driver.find_element_by_css_selector('input[value="Submit query"]').click()
+        sleep(15)
+        driver.find_element_by_id('butDownloadCsv').click()
+        sleep(30)
 
-        soup = BeautifulSoup(driver.page_source, "lxml")
+        download_file = tempfile.NamedTemporaryFile()
 
-        results = soup.find(id='results').find('table').find('tbody')
+        try:
+            # list all the completed remote files (waits for at least one)
+            files = WebDriverWait(driver, 30, 1).until(lambda driver: self.get_downloaded_files(driver))
 
-        for tr in results.find_all('tr'):
-            td = tr.find_all('td')
+            # get the content of the first file remotely
+            content = self.get_file_content(driver, files[0])
 
-            self.log("Downloading study '{}'".format(self.string_or_none(td[0])))
+            with open(download_file.name, 'wb') as f:
+                f.write(content)            
 
-            e = EdgeSiteStudy(
-                project_id=self.int_or_none(td[0]),
-                mrec_number=self.string_or_none(td[1]),
-                iras_number=self.string_or_none(td[2]),
-                project_full_title=self.string_or_none(td[3]),
-                project_short_title=self.string_or_none(td[4]),
-                project_phase=self.string_or_none(td[5]),
-                primary_clinical_management_areas=self.string_or_none(td[6]),
-                project_site_status=self.string_or_none(td[7]),
-                project_status=self.string_or_none(td[8]),
-                project_site_rand_submission_date=self.date_or_none(td[9]),
-                project_site_start_date_nhs_permission=self.date_or_none(td[10]),
-                project_site_date_site_confirmed=self.date_or_none(td[11]),
-                project_site_planned_closing_date=self.date_or_none(td[12]),
-                project_site_closed_date=self.date_or_none(td[13]),
-                project_site_planned_recruitment_end_date=self.date_or_none(td[14]),
-                project_site_actual_recruitment_end_date=self.date_or_none(td[15]),
-                principal_investigator=self.pi_or_none(td[16]),
-                project_site_target_participants=self.int_or_none(td[17]),
-                project_site_estimated_annual_target=self.int_or_none(td[18]),
-                recruited_org=self.int_or_none(td[19]),
-                project_site_lead_nurses=self.string_or_none(td[20]),
-                project_site_name=self.string_or_none(td[21]),
-                project_type=self.string_or_none(td[22]),
-                nihr_portfolio_study_id=self.int_or_none(td[23]),
-                pi_orcidid=self.string_or_none(td[24]),
-                is_uhl_lead_centre=self.boolean_or_none(td[25]),
-                lead_centre_name_if_not_uhl=self.boolean_or_none(td[26]),
-                cro_cra_used=self.boolean_or_none(td[27]),
-                name_of_cro_cra_company_used=self.string_or_none(td[28]),
-                study_category=self.string_or_none(td[29]),
-                randomised_name=self.string_or_none(td[30]),
-                name_of_brc_involved=self.string_or_none(td[31]),
-            )
+        finally:
+            logging.info("Test test_grid_download_files executed successfully")
 
-            if (e.primary_clinical_management_areas or '').upper() in ['CARDIOLOGY', 'VASCULAR SERVICES', 'CARDIAC SURGERY']:
+        with open(download_file.name, encoding="utf-16-le") as csvfile:
+            study_details = csv.DictReader(csvfile, delimiter=',', quotechar='"')
+
+            for row in study_details:
+
+                if row.get('Primary Clinical Management Areas', '').upper() not in ['CARDIOLOGY', 'VASCULAR SERVICES', 'CARDIAC SURGERY']:
+                    continue
+
+                e = EdgeSiteStudy(
+                    project_id=self.int_or_none(row['Project ID']),
+                    iras_number=self.string_or_none(row['IRAS Number']),
+                    project_short_title=self.string_or_none(row['Project Short title']),
+                    primary_clinical_management_areas=self.string_or_none(row['Primary Clinical Management Areas']),
+                    project_site_status=self.string_or_none(row['Project site status']),
+                    project_site_rand_submission_date=self.date_or_none(row['Project site R&D Submission Date']),
+                    project_site_start_date_nhs_permission=self.date_or_none(row['Project site Start date (NHS Permission)']),
+                    project_site_date_site_confirmed=self.date_or_none(row['Project site date site confirmed']),
+                    project_site_planned_closing_date=self.date_or_none(row['Project site Planned closing date']),
+                    project_site_closed_date=self.date_or_none(row['Project site Closed date']),
+                    project_site_planned_recruitment_end_date=self.date_or_none(row['Project site planned recruitment end date']),
+                    project_site_actual_recruitment_end_date=self.date_or_none(row['Project site actual recruitment end date']),
+                    principal_investigator=self.name_or_none(row['Principal Investigator']),
+                    project_site_target_participants=self.int_or_none(row['Project site target participants']),
+                    recruited_org=self.int_or_none(row['Recruited (org)']),
+                    project_site_lead_nurses=self.name_or_none(row['Project site lead nurse(s)']),
+                )
+
                 result.append(e)
 
         self.log("Getting studies: COMPLETED")
 
+        download_file.close()
+
         return result
 
     def string_or_none(self, string_element):
-        string_element = string_element.get_text().strip()
+        string_element = string_element.strip()
         if string_element:
             return string_element
         else:
             return None
 
-    def pi_or_none(self, string_element):
-        string_element = string_element.get_text().strip()
+    def name_or_none(self, string_element):
+        string_element = string_element.strip()
         if string_element:
-            return ' '.join(reversed(
+            name = ' '.join(reversed(
                 [p.strip() for p in filter(lambda x: len(x) > 0, string_element.split(','))]
             )).strip()
-        else:
-            return None
+
+            if name:
+                return name
 
     def int_or_none(self, int_element):
-        int_string = int_element.get_text().strip()
+        int_string = int_element.strip()
         if int_string:
             return int(int_string)
         else:
             return None
 
     def date_or_none(self, date_element):
-        date_string = date_element.get_text().strip()
+        date_string = date_element.strip()
         if date_string:
             return datetime.datetime.strptime(date_string, "%d/%m/%Y").date()
         else:
             return None
 
     def boolean_or_none(self, boolean_element):
-        boolean_string = boolean_element.get_text().strip().upper()
+        boolean_string = boolean_element.strip().upper()
         if boolean_string in ['YES', 'TRUE', '1']:
             return True
         elif boolean_string in ['NO', 'FALSE', '0']:

@@ -1,5 +1,5 @@
 import schedule
-import threading
+import base64
 import logging
 import re
 import time
@@ -8,8 +8,6 @@ import traceback
 import importlib
 import pkgutil
 import inspect
-import os
-from tempfile import mkstemp
 from enum import Enum
 from api.emailing import email_error
 from api.selenium import SeleniumGrid
@@ -198,6 +196,44 @@ class SeleniumEtl(Etl):
 
     def do_post_selenium_etl(self):
         pass
+
+    def get_downloaded_files(self, driver):
+        if not driver.current_url.startswith("chrome://downloads"):
+            driver.get("chrome://downloads/")
+
+        return driver.execute_script( \
+            "return downloads.Manager.get().items_   "
+            "  .filter(e => e.state === 'COMPLETE')  "
+            "  .map(e => e.filePath || e.file_path); " )
+
+    def get_file_content(self, driver, path):
+        try:
+            elem = driver.execute_script( \
+                "var input = window.document.createElement('INPUT'); "
+                "input.setAttribute('type', 'file'); "
+                "input.hidden = true; "
+                "input.onchange = function (e) { e.stopPropagation() }; "
+                "return window.document.documentElement.appendChild(input); " )
+
+            elem._execute('sendKeysToElement', {'value': [ path ], 'text': path})
+
+            result = driver.execute_async_script( \
+                "var input = arguments[0], callback = arguments[1]; "
+                "var reader = new FileReader(); "
+                "reader.onload = function (ev) { callback(reader.result) }; "
+                "reader.onerror = function (ex) { callback(ex.message) }; "
+                "reader.readAsDataURL(input.files[0]); "
+                "input.remove(); "
+                , elem)
+
+            if not result.startswith('data:') :
+                raise Exception("Failed to get file content: %s" % result)
+
+            return base64.b64decode(result[result.find('base64,') + 7:])
+
+        finally:
+            logging.info("get_file_content executed successfully")
+
 
 def get_concrete_etls(cls=None):
     if (cls is None):
