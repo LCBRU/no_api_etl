@@ -22,10 +22,11 @@ Base = declarative_base()
 
 @contextmanager
 def etl_central_session():
+    engine = create_engine(ETL_CENTRAL_CONNECTION_STRING, echo=DATABASE_ECHO)
+    session_maker = sessionmaker(bind=engine)
+    session = session_maker()
+
     try:
-        engine = create_engine(ETL_CENTRAL_CONNECTION_STRING, echo=DATABASE_ECHO)
-        session_maker = sessionmaker(bind=engine)
-        session = session_maker()
         yield session
 
     except Exception as e:
