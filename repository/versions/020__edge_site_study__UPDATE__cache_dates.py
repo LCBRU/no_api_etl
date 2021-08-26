@@ -33,7 +33,7 @@ def upgrade(migrate_engine):
     target_end_date_description = Column("target_end_date_description", NVARCHAR(100))
     target_end_date_description.create(t)
 
-    target_requirement_by = Column("target_requirement_by", Date)
+    target_requirement_by = Column("target_requirement_by", Integer)
     target_requirement_by.create(t)
 
     current_target_recruited_percent = Column("current_target_recruited_percent", Integer)

@@ -21,7 +21,7 @@ class EdgeSiteStudyDownload(SeleniumEtl):
     REPORT = 'BRC Report (Richard)'
 
     def __init__(self):
-        super().__init__(schedule=Schedule.daily_7pm)
+        super().__init__(schedule=Schedule.daily_at_4am)
 
     def do_selenium_etl(self, driver):
         self._studies = self.get_studies(driver)
