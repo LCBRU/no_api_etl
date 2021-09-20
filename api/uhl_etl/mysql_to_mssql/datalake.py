@@ -448,6 +448,7 @@ class DataLake_IdentityStep(DataLakeStep):
                 'ix_demographics_request_column_definition_given_name_column_id',
                 'ix_demographics_request_column_definition_nhs_number_column_id',
                 'ix_demographics_request_column_definition_postcode_column_id',
+                'udx__user__email',
             ]
         )
 
@@ -494,6 +495,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'log_view_id_time_ui_id',
                 'message_body',
                 'app_title',
+                'rid_status_usedby',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
