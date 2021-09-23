@@ -96,6 +96,8 @@ class EdgeSiteStudyDownload(SeleniumEtl):
                     project_site_target_participants=self.int_or_none(row['Project site target participants']),
                     recruited_org=self.int_or_none(row['Recruited (org)']),
                     project_site_lead_nurses=self.name_or_none(row['Project site lead nurse(s)']),
+                    planned_start_date=self.date_or_none(row['Planned Start Date']),
+                    planned_end_date=self.date_or_none(row['Planned End Date']),
                 )
 
                 e.calculate_values()
