@@ -202,9 +202,10 @@ class SeleniumEtl(Etl):
             driver.get("chrome://downloads/")
 
         return driver.execute_script( \
-            "return downloads.Manager.get().items_   "
-            "  .filter(e => e.state === 'COMPLETE')  "
-            "  .map(e => e.filePath || e.file_path); " )
+            "return  document.querySelector('downloads-manager')  "
+            " .shadowRoot.querySelector('#downloadsList')         "
+            " .items.filter(e => e.state === 'COMPLETE')          "
+            " .map(e => e.filePath || e.file_path || e.fileUrl || e.file_url); ")
 
     def get_file_content(self, driver, path):
         try:

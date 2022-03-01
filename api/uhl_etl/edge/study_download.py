@@ -150,8 +150,17 @@ class EdgeSiteStudyDownload(SeleniumEtl):
         else:
             return None
 
+class EdgeStudyRecruitmentDownload(SeleniumEtl):
+    # In order to download this information, see the EDGE reports:
+    # - Patient Attribute Report > Recruitment Numbers all (Richard)
+    # - Project Attribute Reports > Area (richard)
+    #
+    # Area associates the study with a clinical area
+    pass
+
 
 class EdgeStudyOverviewDownload(SeleniumEtl):
+
 
     REPORT_FOLDER = 'ProjectOverviewReport'
 
