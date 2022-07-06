@@ -215,10 +215,12 @@ class MysqlToMssqlStep(EtlStep):
                         # as opposed to an implicit transaction for
                         # each insert, speeds things up
                         inserts = (
+                            'SET ANSI_WARNINGS OFF\n;' + 
                             'BEGIN TRANSACTION\n' +
                             'SET NOCOUNT ON\n' +
                             inserts +
-                            '\nCOMMIT'
+                            '\nCOMMIT' +
+                            'SET ANSI_WARNINGS ON\n;'
                         )
 
                         # Escape stuff
@@ -551,6 +553,7 @@ class DataLake_OpenSpecimenStep(DataLakeStep):
                 'cat_spec_cp_id_label_uq',
                 'cat_spec_cp_id_barcode_uq',
                 'name',
+                'part_empi_id_uq',
             ],
             tables_to_ignore=[
                 'os_container_hierarchy_view',
