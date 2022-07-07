@@ -219,7 +219,7 @@ class MysqlToMssqlStep(EtlStep):
                             'BEGIN TRANSACTION\n' +
                             'SET NOCOUNT ON\n' +
                             inserts +
-                            '\nCOMMIT' +
+                            '\nCOMMIT;\n' +
                             'SET ANSI_WARNINGS ON\n;'
                         )
 
