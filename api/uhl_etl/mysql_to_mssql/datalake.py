@@ -532,7 +532,7 @@ class DataLake_RedCapUoLEasyAsStep(DataLake_RedCapStep):
 
 class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(database_name='redcap_genvasc')
+        super().__init__(database_name='redcap_genvasc_internal')
 
 
 class DataLake_RedCapNationalStep(DataLake_RedCapStep):
@@ -591,6 +591,7 @@ class DataLake_OpenSpecimenStep(DataLakeStep):
                 'fk_auth_tokens_la_log_id',
                 'fk_cfg_props_module_id',
                 'fk_7nmb9yn4uq0fojtbh2nl7stv2',
+                'fk_site_cont_id',
             ]
         )
 
