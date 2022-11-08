@@ -532,7 +532,7 @@ class DataLake_RedCapUoLEasyAsStep(DataLake_RedCapStep):
 
 class DataLake_RedCapGenvascStep(DataLake_RedCapStep):
     def __init__(self):
-        super().__init__(database_name='redcap_genvasc_internal')
+        super().__init__(database_name='redcap_genvasc')
 
 
 class DataLake_RedCapNationalStep(DataLake_RedCapStep):
