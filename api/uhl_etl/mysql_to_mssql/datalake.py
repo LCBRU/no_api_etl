@@ -503,6 +503,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'message_body',
                 'app_title',
                 'rid_status_usedby',
+                'attachment_names',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
@@ -667,7 +668,7 @@ class RedcapDataLakeEtl(Etl):
     def __init__(
         self,
     ):
-        super().__init__(schedule=Schedule.daily_10_30pm)
+        super().__init__(schedule=Schedule.never)
 
     def do_etl(self):
         with ThreadPoolExecutor(max_workers = 4) as executor:
