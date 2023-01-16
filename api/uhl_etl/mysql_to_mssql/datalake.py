@@ -504,6 +504,13 @@ class DataLake_RedCapStep(DataLakeStep):
                 'app_title',
                 'rid_status_usedby',
                 'attachment_names',
+                'email_bcc',
+                'email_cc',
+                'email_subject',
+                'message',
+                'project_message',
+                'project_subject_message',
+                'recipients',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
