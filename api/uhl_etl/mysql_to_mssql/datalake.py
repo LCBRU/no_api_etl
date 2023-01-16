@@ -661,3 +661,26 @@ class DataLake_RedvapStep_Etl(Etl):
         d.run()
         d = DataLake_RedCapUoLEasyAsStep()
         d.run()
+
+class RedcapDataLakeEtl(Etl):
+
+    def __init__(
+        self,
+    ):
+        super().__init__(schedule=Schedule.daily_10_30pm)
+
+    def do_etl(self):
+        with ThreadPoolExecutor(max_workers = 4) as executor:
+
+            for step_class in [
+                DataLake_RedCapBriccsStep,
+                DataLake_RedCapBriccsExtStep,
+                DataLake_RedCapBriccsUoLCrfStep,
+                DataLake_RedCapBriccsUoLSurveyStep,
+                DataLake_RedCapGenvascStep,
+                DataLake_RedCapNationalStep,
+            ]:
+                step = step_class()
+                executor.submit(step.run)
+
+
