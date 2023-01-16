@@ -17,6 +17,7 @@ from api.environment import (
     MS_SQL_DWH_HOST,
     MS_SQL_DWH_USER,
     MS_SQL_DWH_PASSWORD,
+    REDCAP_DATABASES_HOST,
 )
 from concurrent.futures import ThreadPoolExecutor
 import itertools
@@ -401,11 +402,14 @@ class DataLakeStep(MysqlToMssqlStep):
         keys_to_ignore=None,
         tables_to_ignore=None,
         constraints_to_ignore=None,
+        source_database_host=ETL_DATABASES_HOST,
+        source_database_user=ETL_DATABASES_USERNAME,
+        source_database_password=ETL_DATABASES_PASSWORD,
     ):
         super().__init__(
-            source_database_host=ETL_DATABASES_HOST,
-            source_database_user=ETL_DATABASES_USERNAME,
-            source_database_password=ETL_DATABASES_PASSWORD,
+            source_database_host=source_database_host,
+            source_database_user=source_database_user,
+            source_database_password=source_database_password,
             database_name=database_name,
             destination_database_host=MS_SQL_DWH_HOST,
             destination_database_user=MS_SQL_DWH_USER,
@@ -469,6 +473,7 @@ class DataLake_RedCapStep(DataLakeStep):
     def __init__(self, database_name):
         super().__init__(
             database_name=database_name,
+            source_database_host=REDCAP_DATABASES_HOST,
             keys_to_ignore=[
                 'password_reset_key',
                 'nonrule_proj_record_event_field',
