@@ -512,6 +512,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'project_subject_message',
                 'recipients',
                 'hash',
+                'project_dash_order',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
@@ -683,11 +684,11 @@ class RedcapDataLakeEtl(Etl):
 
             for step_class in [
                 DataLake_RedCapBriccsStep,
-                DataLake_RedCapBriccsExtStep,
-                DataLake_RedCapBriccsUoLCrfStep,
-                DataLake_RedCapBriccsUoLSurveyStep,
-                DataLake_RedCapGenvascStep,
-                DataLake_RedCapNationalStep,
+                # DataLake_RedCapBriccsExtStep,
+                # DataLake_RedCapBriccsUoLCrfStep,
+                # DataLake_RedCapBriccsUoLSurveyStep,
+                # DataLake_RedCapGenvascStep,
+                # DataLake_RedCapNationalStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
