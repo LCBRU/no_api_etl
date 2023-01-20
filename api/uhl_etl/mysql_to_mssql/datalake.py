@@ -562,6 +562,7 @@ class DataLake_OpenSpecimenStep(DataLakeStep):
     def __init__(self):
         super().__init__(
             database_name='uol_openspecimen',
+            source_database_host=REDCAP_DATABASES_HOST,
             keys_to_ignore=[
                 'barcode',
                 'cat_cpr_ext_subj_id_uq',
@@ -687,11 +688,11 @@ class RedcapDataLakeEtl(Etl):
 
             for step_class in [
                 DataLake_RedCapBriccsStep,
-                # DataLake_RedCapBriccsExtStep,
-                # DataLake_RedCapBriccsUoLCrfStep,
-                # DataLake_RedCapBriccsUoLSurveyStep,
-                # DataLake_RedCapGenvascStep,
-                # DataLake_RedCapNationalStep,
+                DataLake_RedCapBriccsExtStep,
+                DataLake_RedCapBriccsUoLCrfStep,
+                DataLake_RedCapBriccsUoLSurveyStep,
+                DataLake_RedCapGenvascStep,
+                DataLake_RedCapNationalStep,
             ]:
                 step = step_class()
                 executor.submit(step.run)
