@@ -515,6 +515,7 @@ class DataLake_RedCapStep(DataLakeStep):
                 'project_dash_order',
                 'unique_report_name_project_id',
                 'project_id_todo_type_id',
+                'project_id_unique_role_name',
             ],
             tables_to_ignore=[
                 'redcap_external_modules_log_parameters',
